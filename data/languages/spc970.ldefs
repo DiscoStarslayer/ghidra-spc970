@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- See Relax specification: Ghidra/Framework/SoftwareModeling/data/languages/language_definitions.rxg -->
+
+<language_definitions>
+   <language processor="SPC970"
+            endian="little"
+            size="16"
+            variant="default"
+            version="1.0"
+            slafile="spc970.sla"
+            processorspec="spc970.pspec"
+            id="spc970:LE:16:default">
+    <description>Sony SPC970 Language Module</description>
+    <compiler name="default" spec="spc970.cspec" id="default"/>
+  </language> 
+</language_definitions>

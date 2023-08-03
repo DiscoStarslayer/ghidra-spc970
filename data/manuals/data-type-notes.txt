@@ -1,0 +1,68 @@
+B_PC_REL_TO_ABS = next byte + PC
+
+FP = Direct reference to frame pointer
+
+U15 = For LDM and STM, prob bitmask of registers for function entry/exit
+U16 = see U15
+
+U11 = Seems to interpret next 2 bytes as offset from PC? but negative??
+U12 = unsigned interpretation of low bits on opcode, and then following 2 bytes. 0x4F 85 = BCLR 85.7
+U14 = unsigned interpretation of opcode 0x07 mask, with +0x8
+U20 = Next 2 bytes as uint
+U21 = Not sure, stores low bits on opcode...
+U22 = maybe passthrough to tbl7? unsure...
+U24 = Placeholder for no data?
+U1D = Unsure, like R_DIRECT but for constants maybe?, D = direct? mask 0x07
+U1F = Unsure, next byte is used directly. F = Flag maybe?
+
+CCR = Register CCR
+
+A_ABS_11 = Absolute memory address, 11 bits from opcode + byte, mask: 0x07FF. Unsigned
+A_ABS_16 = Absolute address from next 2 bytes
+A_ABS_24 = Absolute address from next 3 bytes
+
+V_IMM_3 = Immediate value from opcode, mask 0x07
+V_IMM_8 = Next byte, interpret as immediate unsigned value
+V_IMM_16 = Next 2 bytes, interpret as immediate unsigned value
+
+R_IND_OFFS_FP = Mask 0x0F, mem offset of FP. Signed. eg: 0x27 = @(7,FP), 0x29 = @(-7,FP)
+R_IND_OFFS_W2 = Signed offset from RW, Reg from opcode, mask 0x07. Offset interpreted as signed from next two bytes
+R_IND_OFFS_W = Same as W2, but only single byte is interpreted as signed number
+
+R_DIRECT_B = register RB, directly from opcode low half
+R_DIRECT_W = register RW, directly from opcode low half
+R_DIRECT_L = register RL, directly from opcode low half
+R_INDIRECT_W = register RW, interpreted as a memory address, from opcode low half
+R_IND_PRED_W = Indirect with pre-decrement
+R_IND_PSTI_W = Indirect with post-increment
+
+CTRL_REG = System control reg index
+
+BIT_MOD = From opcode, mask 0x07 as immediate. See U14 for high immediate values. Used in bitmask operations
+
+
+89 1A E2 60
+
+89 -> A_ABS_11 -> TBL2
+11A
+E2 -> TBL7
+ADD 11A,RL0
+
+89 0A 81 01 4E
+89 -> A_ABS_11 -> TBL2
+10A
+81 -> MOV RL1
+
+MOV.L 10A,RL1
+
+01 4E
+BRN PC + 0x4E
+
+@define IM		"PSW[13,3]"		# Interrupt Mask Register
+@define BCR		"PSW[8,5]"		# Bank Control Register
+@define S		"PSW[7,1]"		# Supervisor flag
+@define I		"PSW[6,1]"		# Interrupt Enable Flag
+@define M		"PSW[3,1]"		# MSB (negative) Flag
+@define V		"PSW[2,1]"		# Overflow Flag
+@define X		"PSW[1,1]"		# Extension Flag
+@define Z		"PSW[0,1]"		# Zero Flag

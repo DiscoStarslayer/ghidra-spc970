@@ -1,0 +1,25 @@
+<processor_spec>
+	<programcounter register="PC"/>
+	
+	<segmentop space="ram" userop="segment" farpointer="yes">
+		<pcode>
+			<input name="base" size="1"/>
+			<input name="inner" size="2"/>
+			<output name="res" size="3"/>
+			<body><![CDATA[
+				res = (base << 16) + inner;
+			]]></body>
+			<constresolve>
+				<register name="CP" />
+				<register name="DP" />
+				<register name="EP" />
+				<register name="UTP" />
+				<register name="STP" />
+			</constresolve>
+		</pcode>
+	</segmentop>
+	
+	<default_memory_blocks>
+		<memory_block name="IO" start_address="io:0" length="0xFF" initialized="false" />
+	</default_memory_blocks>
+</processor_spec>

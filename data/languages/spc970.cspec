@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- See Relax specification: Ghidra/Framework/SoftwareModeling/data/languages/compiler_spec.rxg -->
+
+<compiler_spec>
+  <data_organization>
+	<pointer_size value="3" />
+  </data_organization>
+  <global>
+    <range space="ram"/>
+    <range space="io"/>
+  </global>
+  <stackpointer register="SP" space="ram"/>
+  <default_proto>
+    <prototype name="__asm" extrapop="0" stackshift="0">
+      <input>
+        <pentry minsize="1" maxsize="500" align="2">
+          <addr offset="0" space="stack"/>
+        </pentry>
+      </input>
+      <output>
+      	<pentry minsize="1" maxsize="1">
+      	  <register name="RB0">
+      	</pentry>
+        <pentry minsize="2" maxsize="2">
+          <register name="RW0"/>
+        </pentry>
+        <pentry minsize="4" maxsize="4">
+          <register name="RL0"/>
+        </pentry>
+      </output>
+      <unaffected>
+        <register name="SP"/>
+        <register name="FP"/>
+        <register name="EP"/>
+        <register name="RW2"/>
+        <register name="RW3"/>
+      </unaffected>
+    </prototype>
+  </default_proto>
+  <prototype name="__sys" extrapop="0" stackshift="0" strategy="register">
+      <input>
+        <pentry minsize="1" maxsize="500" align="2">
+          <addr offset="2" space="stack"/>
+        </pentry>
+      </input>
+      <output>
+    	<pentry minsize="1" maxsize="1">
+      	  <register name="RB0">
+      	</pentry>
+        <pentry minsize="2" maxsize="2">
+          <register name="RW0"/>
+        </pentry>
+        <pentry minsize="4" maxsize="4">
+          <register name="RL0"/>
+        </pentry>
+      </output>
+      <unaffected>
+        <register name="SP"/>
+        <register name="FP"/>
+        <register name="RW2"/>
+        <register name="RW3"/>
+        <register name="RW4"/>
+        <register name="RW5"/>
+        <register name="EP"/>
+        <register name="DP"/>
+      </unaffected>
+  </prototype>
+</compiler_spec>

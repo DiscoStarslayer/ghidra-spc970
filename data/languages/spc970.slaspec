@@ -1,0 +1,466 @@
+# SCP 970 Sleigh Specification file
+
+define endian=little;
+define alignment=1;
+
+define space ram type=ram_space size=3 default;
+define space io type=ram_space size=1;
+
+define space register type=register_space size=2;
+
+define register offset=0x00 size=1 [ RB0 _ RB1 _ RB2 _ RB3 _ RB4 _ RB5 _ RB6 _ RB7 _ ];
+define register offset=0x00 size=2 [ RW0   RW1   RW2   RW3   RW4   RW5   _     _     ];
+define register offset=0x00 size=2 [ _     _     _     _     _     _     FP    SP    ];
+define register offset=0x00 size=4 [ RL0         RL2         RL4         RL6         ];
+
+# PSW  Processor Status Word
+# PC   Program Counter
+# SSP  System Stack Pointer
+# CP   Code Page Register
+# DP   Data Page Register
+# EP   Extra Page Register 
+# UTP  User Stack Page Register
+# STP  System Stack Page Register
+
+define register offset=0x10 size=2 [ PSW PC  SSP _  _  _  _   _   ];
+define register offset=0x10 size=1 [ _ _ _ _ _ _ CP DP EP UTP STP ];
+
+# Ghidra bit range selector index 0 is LSB
+@define IM		"PSW[13,3]"		# Interrupt Mask Register
+@define BCR		"PSW[8,5]"		# Bank Control Register
+@define S		"PSW[7,1]"		# Supervisor flag
+@define I		"PSW[6,1]"		# Interrupt Enable Flag
+@define M		"PSW[3,1]"		# MSB (negative) Flag
+@define V		"PSW[2,1]"		# Overflow Flag
+@define X		"PSW[1,1]"		# Extension Flag
+@define Z		"PSW[0,1]"		# Zero Flag
+
+# Fake flag registers, synced to actual PSW before PSW based ops
+define register offset=0x20 size=1 [ IM BCR S I M V X Z ];
+
+# SPC970 has individual "banks" for registers, aka a register window
+# BCR register selects currently active bank index. 
+# SPC970 is assumed to have 16 banks, SPC970s 32 banks
+
+# Following "Window" registers emulate this functionality within ghidra. 
+# Actual registers are simply a pointer to this storage space
+define register offset=0x30 size=2 [
+	W000 W001 W002 W003 W004 W005 W006 W007
+	W010 W011 W012 W013 W014 W015 W016 W017
+	W020 W021 W022 W023 W024 W025 W026 W027
+	W030 W031 W032 W033 W034 W035 W036 W037
+	W040 W041 W042 W043 W044 W045 W046 W047
+	W050 W051 W052 W053 W054 W055 W056 W057
+	W060 W061 W062 W063 W064 W065 W066 W067
+	W070 W071 W072 W073 W074 W075 W076 W077
+	W080 W081 W082 W083 W084 W085 W086 W087
+	W090 W091 W092 W093 W094 W095 W096 W097
+	W100 W101 W102 W103 W104 W105 W106 W107
+	W110 W111 W112 W113 W114 W115 W116 W117
+	W120 W121 W122 W123 W124 W125 W126 W127
+	W130 W131 W132 W133 W134 W135 W136 W137
+	W140 W141 W142 W143 W144 W145 W146 W147
+	W150 W151 W152 W153 W154 W155 W156 W157
+];
+
+define token opbyte (8)
+	op0_8		= (0,7)
+	op0_4		= (0,3)
+	
+	opHalf4_1	= (4,4)
+	opMode4_4	= (4,7)
+	
+	opData5_3	= (5,7)
+	bReg5_3		= (5,7)
+	wReg5_3		= (5,7)
+	lReg5_3		= (5,7)
+;
+
+define token bdata (8)
+	imm8		= (0,7)
+	simm8		= (0,7) signed
+
+# LDM
+# 0 1 2 3 4 5 6 7
+	ldmRW0		= (0,0)
+	ldmRW1		= (1,1)
+	ldmRW2		= (2,2)
+	ldmRW3		= (3,3)
+	ldmRW4		= (4,4)
+	ldmRW5		= (5,5)
+	ldmRW6		= (6,6)
+	ldmRW7		= (7,7)
+	ldmRW1N		= (1,7)
+	ldmRW2N		= (2,7)
+	ldmRW3N		= (3,7)
+	ldmRW4N		= (4,7)
+	ldmRW5N		= (5,7)
+	ldmRW6N		= (6,7)
+	ldmRW7N		= (7,7)
+# STM
+# 7 6 5 4 3 2 1 0	
+	stmRW7		= (0,0)
+	stmRW6		= (1,1)
+	stmRW5		= (2,2)
+	stmRW4		= (3,3)
+	stmRW3		= (4,4)
+	stmRW2		= (5,5)
+	stmRW1		= (6,6)
+	stmRW0		= (7,7)	
+	stmRW7N		= (0,0)
+	stmRW6N		= (0,1)
+	stmRW5N		= (0,2)
+	stmRW4N		= (0,3)
+	stmRW3N		= (0,4)
+	stmRW2N		= (0,5)
+	stmRW1N		= (0,6)
+;
+
+define token wdata (16)
+	imm16		= (0, 15)
+;
+
+define token adata (24)
+	imm24		= (0,23)
+;
+
+attach variables [ bReg5_3 ] [ RB0 RB1 RB2 RB3 RB4 RB5 RB6 RB7 ];
+attach variables [ wReg5_3 ] [ RW0 RW1 RW2 RW3 RW4 RW5 FP  SP  ];
+attach variables [ lReg5_3 ] [ RL0 _   RL2 _   RL4 _   RL6 _   ];
+
+# Custom pcode ops to reference segments using CP, EP and DP page registers
+define pcodeop segment;
+
+define pcodeop trap;
+define pcodeop trapException;
+
+define pcodeop enableInterrupts;
+define pcodeop disableInterrupts;
+
+# Macro for changing register bank
+@define NUMREGBANKS 16
+@define REGBANKSZ 8
+
+macro regbank(from,to) {
+	# Store current registers to window
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 0) * 2) = RW0; 
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 1) * 2) = RW1; 
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 2) * 2) = RW2; 
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 3) * 2) = RW3; 
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 4) * 2) = RW4; 
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 5) * 2) = RW5; 
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 6) * 2) = FP; 
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 7) * 2) = SP; 
+	
+	# Load new window into registers
+	RW0 = *[register]:2 ((&W000) + (to:4 * $(REGBANKSZ) + 0) * 2);
+	RW1 = *[register]:2 ((&W000) + (to:4 * $(REGBANKSZ) + 1) * 2);
+	RW2 = *[register]:2 ((&W000) + (to:4 * $(REGBANKSZ) + 2) * 2);
+	RW3 = *[register]:2 ((&W000) + (to:4 * $(REGBANKSZ) + 3) * 2);
+	RW4 = *[register]:2 ((&W000) + (to:4 * $(REGBANKSZ) + 4) * 2);
+	RW5 = *[register]:2 ((&W000) + (to:4 * $(REGBANKSZ) + 5) * 2);
+	FP  = *[register]:2 ((&W000) + (to:4 * $(REGBANKSZ) + 6) * 2);
+	SP  = *[register]:2 ((&W000) + (to:4 * $(REGBANKSZ) + 7) * 2);
+}
+
+macro subFlags(op1, op2) {
+	X = op1 < op2;
+	V = sborrow(op1,op2);
+}
+
+macro zeroFlags(result) {
+	Z = result == 0;
+	M = result s< 0;
+}
+
+macro push16(val16) {
+	SP = SP - 2;
+	ptr:3 = segment(UTP,SP);
+	*:2 ptr = val16;
+}
+
+macro pop16(val16) {
+	ptr:3 = segment(UTP,SP);
+	val16 = *:2 ptr;
+	SP = SP + 2;
+}
+
+macro syncFlags() {
+	PSW = 0;
+	PSW = PSW & (zext(IM & 0x7) << 13);
+	PSW = PSW & (zext(BCR & 0x1F) << 8);
+	PSW = PSW & (zext(S & 0x1) << 7);
+	PSW = PSW & (zext(I & 0x1) << 6);
+	PSW = PSW & (zext(M & 0x1) << 3);
+	PSW = PSW & (zext(V & 0x1) << 2);
+	PSW = PSW & (zext(X & 0x1) << 1);
+	PSW = PSW & zext(Z & 0x1);
+}
+
+macro syncPSW() {
+	IM = (PSW >> 13) & 0x7;
+	BCR = (PSW >> 8) & 0x1F;
+	S = (PSW >> 7) & 0x1;
+	I = (PSW >> 6) & 0x1;
+	M = (PSW >> 3) & 0x1;
+	V = (PSW >> 2) & 0x1;
+	X = (PSW >> 1) & 0x1;
+	Z = PSW & 0x1;
+}
+
+
+simmVal8: #simm8 is simm8 { local tmp:1 = simm8; export tmp; }
+immVal8: #imm8 is imm8 { local tmp:1 = imm8; export tmp; }
+immVal16: #imm16 is imm16 { local tmp:2 = imm16; export tmp; }
+
+# Code Pointer (CP) is used as high value of PC, use this to our advantage
+cpAddr16: loc is imm16 [ loc = (inst_next & 0xFF0000) + imm16; ] { export *:1 loc; }
+
+immAddr8: loc is imm8 [ loc = 0 + imm8; ] { export *[io]:1 loc; }
+immAddr24: imm24 is imm24 { export *:1 imm24; }
+
+relAddr8: loc is simm8 [ loc = inst_next + simm8; ] { export *:1 loc; }
+
+tjsrAddr3: loc is opData5_3 [ loc = inst_next + opData5_3; ] { export *:1 loc; }
+
+bIdx3: opData5_3 is opData5_3 {
+	local tmp:1 = opData5_3;
+	export tmp; 
+}
+
+cc: "RA" is opMode4_4=0x0 { tmp:1=1; export tmp; }
+cc: "RN" is opMode4_4=0x1 { tmp:1=0; export tmp; }
+cc: "HI" is opMode4_4=0x2 { tmp:1=!(X||Z); export tmp; }
+cc: "LS" is opMode4_4=0x3 { tmp:1=X||Z; export tmp; }
+cc: "XC" is opMode4_4=0x4 { tmp:1=!X; export tmp; }
+cc: "XS" is opMode4_4=0x5 { tmp:1=X; export tmp; }
+cc: "NE" is opMode4_4=0x6 { tmp:1=!Z; export tmp; }
+cc: "EQ" is opMode4_4=0x7 { tmp:1=Z; export tmp; }
+cc: "VC" is opMode4_4=0x8 { tmp:1=!V; export tmp; }
+cc: "VS" is opMode4_4=0x9 { tmp:1=V; export tmp; }
+cc: "MC" is opMode4_4=0xA { tmp:1=!M; export tmp; }
+cc: "MS" is opMode4_4=0xB { tmp:1=M; export tmp; }
+cc: "GE" is opMode4_4=0xC { tmp:1=!(M^^V); export tmp; }
+cc: "LT" is opMode4_4=0xD { tmp:1=M^^V; export tmp; }
+cc: "GT" is opMode4_4=0xE { tmp:1=!(Z||(M^^V)); export tmp; }
+cc: "LE" is opMode4_4=0xF { tmp:1=Z||(M^^V); export tmp; }
+
+stmL7: SP			is SP & stmRW7=1						{ push16(SP - 2); }
+stmL7: ""	 		is epsilon								{ }
+
+stmL6: FP			is FP & stmL7 & stmRW6=1 & stmRW7N=0	{ push16(FP); build stmL7; }
+stmL6: FP,stmL7		is FP & stmL7 & stmRW6=1				{ push16(FP); build stmL7; }
+stmL6: stmL7 		is stmL7								{ build stmL7; }
+
+stmL5: RW5			is RW5 & stmL6 & stmRW5=1 & stmRW6N=0	{ push16(RW5); build stmL6; }
+stmL5: RW5,stmL6	is RW5 & stmL6 & stmRW5=1				{ push16(RW5); build stmL6; }
+stmL5: stmL6 		is stmL6								{ build stmL6; }
+
+stmL4: RW4			is RW4 & stmL5 & stmRW4=1 & stmRW5N=0	{ push16(RW4); build stmL5; }
+stmL4: RW4,stmL5	is RW4 & stmL5 & stmRW4=1				{ push16(RW4); build stmL5; }
+stmL4: stmL5 		is stmL5								{ build stmL5; }
+
+stmL3: RW3			is RW3 & stmL4 & stmRW3=1 & stmRW4N=0	{ push16(RW3); build stmL4; }
+stmL3: RW3,stmL4	is RW3 & stmL4 & stmRW3=1				{ push16(RW3); build stmL4; }
+stmL3: stmL4 		is stmL4								{ build stmL4; }
+
+stmL2: RW2			is RW2 & stmL3 & stmRW2=1 & stmRW3N=0	{ push16(RW2); build stmL3; }
+stmL2: RW2,stmL3	is RW2 & stmL3 & stmRW2=1				{ push16(RW2); build stmL3; }
+stmL2: stmL3 		is stmL3								{ build stmL3; }
+
+stmL1: RW1			is RW1 & stmL2 & stmRW1=1 & stmRW2N=0	{ push16(RW1); build stmL2; }
+stmL1: RW1,stmL2	is RW1 & stmL2 & stmRW1=1				{ push16(RW1); build stmL2; }
+stmL1: stmL2 		is stmL2								{ build stmL2; }
+
+stmL0: RW0			is RW0 & stmL1 & stmRW0=1 & stmRW1N=0	{ push16(RW0); build stmL1; }
+stmL0: RW0,stmL1	is RW0 & stmL1 & stmRW0=1				{ push16(RW0); build stmL1; }
+stmL0: stmL1		is stmL1								{ build stmL1; }
+
+ldmL7: SP			is SP & ldmRW7=1						{ ptr:3 = segment(UTP,SP); SP = *:2 ptr; }
+ldmL7: ""	 		is epsilon								{ }
+
+ldmL6: FP			is FP & ldmL7 & ldmRW6=1 & ldmRW7N=0	{ pop16(FP); build ldmL7; }
+ldmL6: FP,ldmL7		is FP & ldmL7 & ldmRW6=1				{ pop16(FP); build ldmL7; }
+ldmL6: ldmL7 		is ldmL7								{ build ldmL7; }
+
+ldmL5: RW5			is RW5 & ldmL6 & ldmRW5=1 & ldmRW6N=0	{ pop16(RW5); build ldmL6; }
+ldmL5: RW5,ldmL6	is RW5 & ldmL6 & ldmRW5=1				{ pop16(RW5); build ldmL6; }
+ldmL5: ldmL6 		is ldmL6								{ build ldmL6; }
+
+ldmL4: RW4			is RW4 & ldmL5 & ldmRW4=1 & ldmRW5N=0	{ pop16(RW4); build ldmL5; }
+ldmL4: RW4,ldmL5	is RW4 & ldmL5 & ldmRW4=1				{ pop16(RW4); build ldmL5; }
+ldmL4: ldmL5 		is ldmL5								{ build ldmL5; }
+
+ldmL3: RW3			is RW3 & ldmL4 & ldmRW3=1 & ldmRW4N=0	{ pop16(RW3); build ldmL4; }
+ldmL3: RW3,ldmL4	is RW3 & ldmL4 & ldmRW3=1				{ pop16(RW3); build ldmL4; }
+ldmL3: ldmL4 		is ldmL4								{ build ldmL4; }
+
+ldmL2: RW2			is RW2 & ldmL3 & ldmRW2=1 & ldmRW3N=0	{ pop16(RW2); build ldmL3; }
+ldmL2: RW2,ldmL3	is RW2 & ldmL3 & ldmRW2=1				{ pop16(RW2); build ldmL3; }
+ldmL2: ldmL3 		is ldmL3								{ build ldmL3; }
+
+ldmL1: RW1			is RW1 & ldmL2 & ldmRW1=1 & ldmRW2N=0	{ pop16(RW1); build ldmL2; }
+ldmL1: RW1,ldmL2	is RW1 & ldmL2 & ldmRW1=1				{ pop16(RW1); build ldmL2; }
+ldmL1: ldmL2 		is ldmL2								{ build ldmL2; }
+
+ldmL0: RW0			is RW0 & ldmL1 & ldmRW0=1 & ldmRW1N=0	{ pop16(RW0); build ldmL1; }
+ldmL0: RW0,ldmL1	is RW0 & ldmL1 & ldmRW0=1				{ pop16(RW0); build ldmL1; }
+ldmL0: ldmL1		is ldmL1								{ build ldmL1; }
+
+####### TABLE 1
+
+:B^cc relAddr8 is op0_4=0x0 & cc; relAddr8 {
+	if (cc) goto relAddr8;
+}
+
+:TJSR tjsrAddr3 is op0_4=0x1 & opHalf4_1=0x1 & tjsrAddr3 {
+	goto tjsrAddr3;
+}
+
+# Maybe use bit accessors instead?
+:BSET immAddr8"."bIdx3 is op0_4=0x4 & opHalf4_1=0x0 & bIdx3; immAddr8 {
+	local tmp:1 = 1 << bIdx3;
+	Z = (immAddr8 & tmp) == 0;
+	immAddr8 = immAddr8 | tmp;
+}
+
+:BCLR immAddr8"."bIdx3 is op0_4=0x4 & opHalf4_1=0x1 & bIdx3; immAddr8 {
+	local tmp:1 = 1 << bIdx3;
+	Z = (immAddr8 & tmp) == 0;
+	immAddr8 = immAddr8 & (0xFF ^ tmp);
+}
+
+:BBC immAddr8"."bIdx3, relAddr8 is op0_4=0x5 & opHalf4_1=0x0 & bIdx3; immAddr8; relAddr8 {
+	local tmp:1 = 1 << bIdx3;
+	local result:1 = immAddr8 & tmp;
+	if (result == 0) goto relAddr8;
+}
+
+:BBS immAddr8"."bIdx3, relAddr8 is op0_4=0x5 & opHalf4_1=0x1 & bIdx3; immAddr8; relAddr8 {
+	local tmp:1 = 1 << bIdx3;
+	local result:1 = immAddr8 & tmp;
+	if (result == 1) goto relAddr8;
+}
+
+:MOV.IR.B immVal8,bReg5_3 is op0_4=0x6 & opHalf4_1=0x0 & bReg5_3; immVal8 {
+	bReg5_3 = immVal8;
+}
+
+:MOV.IR.W immVal16,wReg5_3 is op0_4=0x6 & opHalf4_1=0x1 & wReg5_3; immVal16 {
+	wReg5_3 = immVal16;
+}
+
+:CMP.IR.B immVal8,bReg5_3 is op0_4=0x7 & opHalf4_1=0x0 & bReg5_3; immVal8 {
+	subFlags(bReg5_3, immVal8);
+	local cmp:1 = bReg5_3 - immVal8;
+	zeroFlags(cmp);
+}
+
+:CMP.IR.W immVal16,wReg5_3 is op0_4=0x7 & opHalf4_1=0x1 & wReg5_3; immVal16 {
+	subFlags(wReg5_3, immVal16);
+	local cmp:2 = wReg5_3 - immVal16;
+	zeroFlags(cmp);
+}
+
+:JSR cpAddr16 is op0_8=0xE4; cpAddr16 {
+	push16(&:2 inst_next);
+	call cpAddr16;
+}
+
+:JMP cpAddr16 is op0_8=0xE5; cpAddr16 {
+	call cpAddr16;
+}
+
+:LINK FP,immVal8 is op0_8=0xE6 & FP; immVal8 {
+	push16(FP);
+	FP = SP;
+	SP = SP + zext(immVal8);
+}
+
+:PJSR immAddr24 is op0_8=0xEC; immAddr24 {
+	push16(&:2 inst_next);
+	push16(CP);
+	CP = (immAddr24 & 0xFF0000) >> 16;
+	call immAddr24;
+}
+
+:PJMP immAddr24 is op0_8=0xED; immAddr24 {
+	CP = (immAddr24 & 0xFF0000) >> 16;
+	call immAddr24;
+}
+
+:LINK FP,immVal16 is op0_8=0xEE & FP; immVal16 {
+	push16(FP);
+	FP = SP;
+	SP = SP + immVal16;
+}
+
+:TRAPE is op0_8=0xF1 {
+	# Unimplemented. Trap Exception?
+	trapException();
+}
+
+:TRAPA immVal8 is op0_8=0xF2; immVal8 {
+	push16(&:2 inst_next);
+	push16(CP);
+	syncFlags();
+	push16(PSW);
+	
+	# TODO:
+	# Need to determine where trapA vector table exists
+	# then navigate to that vector address
+	trap(immVal8);
+}
+
+:REIT is op0_8=0xF5 {
+	# Is PSW restored from stack?
+	pop16(CP);
+	pop16(PC);
+	
+	local hi:3 = zext(CP);
+	ptr:3 = (hi << 16) + zext(PC);
+	
+	return [ptr];
+}	
+	
+:UNLK FP is op0_8=0xF6 & FP {
+	SP = FP;
+	pop16(FP);
+}
+
+:LDM ldmL0 is op0_8=0xF7 & ldmL0 {
+	build ldmL0;
+}
+
+:STM stmL0 is op0_8=0xF8 & stmL0 {
+	build stmL0;
+}
+
+:RTS is op0_8=0xFA {
+	pop16(PC);
+	local hi:3 = zext(CP);
+	ptr:3 = (hi << 16) + zext(PC);
+	
+	return [ptr];
+}
+
+:PRTS is op0_8=0xFB {
+	pop16(CP);
+	pop16(PC);
+	
+	local hi:3 = zext(CP);
+	ptr:3 = (hi << 16) + zext(PC);
+	
+	return [ptr];
+}
+
+:EI is op0_8=0xFC {
+	enableInterrupts();
+}
+
+:DI is op0_8=0xFD {
+	disableInterrupts();
+}
+
+:NOP is op0_8=0xFF {}
+
