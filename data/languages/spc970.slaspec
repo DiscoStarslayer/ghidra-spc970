@@ -65,16 +65,16 @@ define register offset=0x30 size=2 [
 
 define token opbyte (8)
 	op0_8		= (0,7)
-	op0_4		= (0,3)
+	op0_4		= (4,7)
 	
-	opHalf4_1	= (4,4)
-	opMode4_4	= (4,7)
-	simm4_4		= (4,7) signed
+	opHalf4_1	= (3,3)
+	opMode4_4	= (0,3)
+	simm4_4		= (0,3) signed
 	
-	opData5_3	= (5,7)
-	bReg5_3		= (5,7)
-	wReg5_3		= (5,7)
-	lReg5_3		= (5,7)
+	opData5_3	= (0,2)
+	bReg5_3		= (0,2)
+	wReg5_3		= (0,2)
+	lReg5_3		= (0,2)
 ;
 
 define token bdata (8)
@@ -124,6 +124,11 @@ define token wdata (16)
 
 define token adata (24)
 	imm24		= (0,23)
+;
+
+define context contextreg
+	depth		= (0,3)
+	table		= (0,3)
 ;
 
 attach variables [ bReg5_3 ] [ RB0 RB1 RB2 RB3 RB4 RB5 RB6 RB7 ];
@@ -232,43 +237,52 @@ bIdx3: opData5_3 is opData5_3 {
 
 ####### OP Preludes
 
-extRegVal: wReg5_3 is (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3) & wReg5_3 { tmp:3 = (DP << 16) + wReg5_3; export tmp; }
-extRegVal: wReg5_3 is (opData5_3=4 | opData5_3=5) & wReg5_3 { tmp:3 = (EP << 16) + wReg5_3; export tmp; }
-extRegVal: wReg5_3 is (opData5_3=6 | opData5_3=7) & wReg5_3 { tmp:3 = (UTP << 16) + wReg5_3; export tmp; }
+extRegVal: wReg5_3 is (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3) & wReg5_3 { tmp:3 = (zext(DP) << 16) + zext(wReg5_3:1); export tmp; }
+extRegVal: wReg5_3 is (opData5_3=4 | opData5_3=5) & wReg5_3 { tmp:3 = (zext(EP) << 16) + zext(wReg5_3:1); export tmp; }
+extRegVal: wReg5_3 is (opData5_3=6 | opData5_3=7) & wReg5_3 { tmp:3 = (zext(UTP) << 16) + zext(wReg5_3:1); export tmp; }
 
-bFpOffset: @(simm4_4,FP) is op0_4=0x2 & simm4_4 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(simm4_4:1); export *:1 ptr; }
-wFpOffset: @(simm4_4,FP) is op0_4=0x3 & simm4_4 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(simm4_4:1); export *:2 ptr; }
+# bFpOffset
+bTbl2: @(simm4_4,FP) is op0_4=0x2 & simm4_4 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(simm4_4:1); export *:1 ptr; }
+wTbl2: @(simm4_4,FP) is op0_4=0x3 & simm4_4 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(simm4_4:1); export *:2 ptr; }
 
-bImmAddr11: val is op0_4=0x8 & opHalf4_1=0x0 & opData5_3; imm8 [ val = (opData5_3 << 8) + imm8; ] { tmp:3 = zext(val:2); export *:1 tmp; }
-wImmAddr11: val is op0_4=0x8 & opHalf4_1=0x1 & opData5_3; imm8 [ val = (opData5_3 << 8) + imm8; ] { tmp:3 = zext(val:2); export *:2 tmp; }
+# bImmAddr11
+bTbl2_8: val is op0_4=0x8 & opHalf4_1=0x0 & opData5_3; imm8 [ val = (opData5_3 << 8) + imm8; ] { tmp:3 = zext(val:2); export *:1 tmp; }
+wTbl2_8: val is op0_4=0x8 & opHalf4_1=0x1 & opData5_3; imm8 [ val = (opData5_3 << 8) + imm8; ] { tmp:3 = zext(val:2); export *:2 tmp; }
 
-bRW2Offset: @(simm16,extRegVal) is op0_4=0x9 & opHalf4_1=0x0 & extRegVal; simm16 { ptr:3 = extRegVal + sext(simm16:2); export *:1 ptr; }
-wRW2Offset: @(simm16,extRegVal) is op0_4=0x9 & opHalf4_1=0x1 & extRegVal; simm16 { ptr:3 = extRegVal + sext(simm16:2); export *:2 ptr; }
+# bRW2Offset
+bTbl2_16: @(simm16,extRegVal) is op0_4=0x9 & opHalf4_1=0x0 & extRegVal; simm16 { ptr:3 = extRegVal + sext(simm16:2); export *:1 ptr; }
+wTbl2_16: @(simm16,extRegVal) is op0_4=0x9 & opHalf4_1=0x1 & extRegVal; simm16 { ptr:3 = extRegVal + sext(simm16:2); export *:2 ptr; }
 
-bRWOffset: @(simm8,extRegVal) is op0_4=0xA & opHalf4_1=0x0 & extRegVal; simm8 { ptr:3 = extRegVal + sext(simm8:1); export *:1 ptr; }
-wRWOffset: @(simm8,extRegVal) is op0_4=0xA & opHalf4_1=0x1 & extRegVal; simm8 { ptr:3 = extRegVal + sext(simm8:1); export *:2 ptr; }
+# bRWOffset
+bTbl2_8: @(simm8,extRegVal) is op0_4=0xA & opHalf4_1=0x0 & extRegVal; simm8 { ptr:3 = extRegVal + sext(simm8:1); export *:1 ptr; }
+wTbl2_8: @(simm8,extRegVal) is op0_4=0xA & opHalf4_1=0x1 & extRegVal; simm8 { ptr:3 = extRegVal + sext(simm8:1); export *:2 ptr; }
 
-bRWAddr: @(extRegVal) is op0_4=0xB & opHalf4_1=0x0 & extRegVal { export *:1 extRegVal; }
-wRWAddr: @(extRegVal) is op0_4=0xB & opHalf4_1=0x1 & extRegVal { export *:2 extRegVal; }
+# bRWAddr
+bTbl2: @(extRegVal) is op0_4=0xB & opHalf4_1=0x0 & extRegVal { export *:1 extRegVal; }
+wTbl2: @(extRegVal) is op0_4=0xB & opHalf4_1=0x1 & extRegVal { export *:2 extRegVal; }
 
-rbDir: bReg5_3 is (op0_4=0xC | op0_4=0x1) & opHalf4_1=0x0 & bReg5_3 { export bReg5_3; }
-rwDir: wReg5_3 is op0_4=0xC & opHalf4_1=0x1 & wReg5_3 { export wReg5_3; }
+# rbDir
+bTbl4: bReg5_3 is op0_4=0x1 & opHalf4_1=0x0 & bReg5_3 { export bReg5_3; }
+bTbl2: bReg5_3 is op0_4=0xC & opHalf4_1=0x0 & bReg5_3 { export bReg5_3; }
+wTbl2: wReg5_3 is op0_4=0xC & opHalf4_1=0x1 & wReg5_3 { export wReg5_3; }
 
-bOpImm3: opData5_3 is op0_4=0xD & opHalf4_1=0x0 & opData5_3 { tmp:1 = zext(opData5_3:1); export tmp; }
-wOpImm3: opData5_3 is op0_4=0xD & opHalf4_1=0x1 & opData5_3 { tmp:2 = zext(opData5_3:1); export tmp; }
+bTbl3: opData5_3 is op0_4=0xD & opHalf4_1=0x0 & opData5_3 { tmp:1 = zext(opData5_3:1); export tmp; }
+wTbl3: opData5_3 is op0_4=0xD & opHalf4_1=0x1 & opData5_3 { tmp:2 = zext(opData5_3:1); export tmp; }
 
-bAddrAbs16: val is op0_8=0xE0; imm16 [ val = (DP << 16) + imm16; ] { export *:1 val; }
-bAddrAbs24: immAddr24 is op0_8=0xE1; immAddr24 { export immAddr24; }
-bOpImm8: immVal8 is op0_8=0xE2; immVal8 { export immVal8; }
+# bAddrAbs16
+bTbl2_16: val is op0_8=0xE0; imm16 [ val = (DP << 16) + imm16; ] { export *:1 val; }
+# bAddrAbs24
+bTbl2_24: immAddr24 is op0_8=0xE1; immAddr24 { export immAddr24; }
+bTbl3_8: immVal8 is op0_8=0xE2; immVal8 { export immVal8; }
 
-# :POP.B ? is op0_8=0xE7
+# :POP.B ? is op0_8=0xE7 tbl2
 
-wAddrAbs16: val is op0_8=0xE8; imm16 [ val = (DP << 16) + imm16; ] { export *:2 val; }
-wAddrAbs24: wImmAddr24 is op0_8=0xE9; wImmAddr24 { export wImmAddr24; }
-wOpImm16: immVal16 is op0_8=0xEA; immVal16 { export immVal16; }
-wOpImm8: immVal8 is op0_8=0xFE; immVal8 { tmp:2 = zext(immVal8); export tmp; }
+wTbl2_16: val is op0_8=0xE8; imm16 [ val = (DP << 16) + imm16; ] { export *:2 val; }
+wTbl2_24: wImmAddr24 is op0_8=0xE9; wImmAddr24 { export wImmAddr24; }
+wTbl3_16: immVal16 is op0_8=0xEA; immVal16 { export immVal16; }
+wTbl3_8: immVal8 is op0_8=0xFE; immVal8 { tmp:2 = zext(immVal8); export tmp; }
 
-# :POP.W ? is op0_8=0xEF
+# :POP.W ? is op0_8=0xEF tbl2
 # :TBL5 ? is op0_8=0xF3
 
 ####### END OP Preludes
@@ -511,4 +525,54 @@ ldmL0: ldmL1		is ldmL1								{ build ldmL1; }
 
 ####### TABLE 2
 
+:XOR.GR.B bTbl2,bReg5_3 is bTbl2; op0_4=0x0 & opHalf4_1=0x0 & bReg5_3 {
+	bReg5_3 = bTbl2 ^ bReg5_3;
+	zeroFlags(bReg5_3);
+}
+:XOR.GR.B bTbl2_8,bReg5_3 is bTbl2_8; op0_4=0x0 & opHalf4_1=0x0 & bReg5_3 {
+	bReg5_3 = bTbl2_8 ^ bReg5_3;
+	zeroFlags(bReg5_3);
+}
+:XOR.GR.B bTbl2_16,bReg5_3 is bTbl2_16; op0_4=0x0 & opHalf4_1=0x0 & bReg5_3 {
+	bReg5_3 = bTbl2_16 ^ bReg5_3;
+	zeroFlags(bReg5_3);
+}
+:XOR.GR.B bTbl2_24,bReg5_3 is bTbl2_24; op0_4=0x0 & opHalf4_1=0x0 & bReg5_3 {
+	bReg5_3 = bTbl2_24 ^ bReg5_3;
+	zeroFlags(bReg5_3);
+}
 
+:XOR.GR.W wTbl2,wReg5_3 is wTbl2; op0_4=0x0 & opHalf4_1=0x0 & wReg5_3 {
+	wReg5_3 = wTbl2 ^ wReg5_3;
+	zeroFlags(wReg5_3);
+}
+:XOR.GR.W wTbl2_8,wReg5_3 is wTbl2_8; op0_4=0x0 & opHalf4_1=0x0 & wReg5_3 {
+	wReg5_3 = wTbl2_8 ^ wReg5_3;
+	zeroFlags(wReg5_3);
+}
+:XOR.GR.W wTbl2_16,wReg5_3 is wTbl2_16; op0_4=0x0 & opHalf4_1=0x0 & wReg5_3 {
+	wReg5_3 = wTbl2_16 ^ wReg5_3;
+	zeroFlags(wReg5_3);
+}
+:XOR.GR.W wTbl2_24,wReg5_3 is wTbl2_24; op0_4=0x0 & opHalf4_1=0x0 & wReg5_3 {
+	wReg5_3 = wTbl2_24 ^ wReg5_3;
+	zeroFlags(wReg5_3);
+}
+
+
+:BXOR bTbl2"."opData5_3 is bTbl2; op0_4=0x0 & opHalf4_1=0x1 & opData5_3 {
+	tmp:1 = 1 << opData5_3:1;
+	bTbl2 = bTbl2 ^ tmp;
+}
+:BXOR bTbl2_8"."opData5_3 is bTbl2_8; op0_4=0x0 & opHalf4_1=0x1 & opData5_3 {
+	tmp:1 = 1 << opData5_3:1;
+	bTbl2_8 = bTbl2_8 ^ tmp;
+}
+:BXOR bTbl2_16"."opData5_3 is bTbl2_16; op0_4=0x0 & opHalf4_1=0x1 & opData5_3 {
+	tmp:1 = 1 << opData5_3:1;
+	bTbl2_16 = bTbl2_16 ^ tmp;
+}
+:BXOR bTbl2_24"."opData5_3 is bTbl2_24; op0_4=0x0 & opHalf4_1=0x1 & opData5_3 {
+	tmp:1 = 1 << opData5_3:1;
+	bTbl2_24= bTbl2_24^ tmp;
+}
