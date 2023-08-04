@@ -54,3 +54,27 @@ wOpImm8: immVal8 is op0_8=0xFE; immVal8 { tmp:2 = zext(immVal8); export tmp; }
 
 # :POP.W ? is op0_8=0xEF
 # :TBL5 ? is op0_8=0xF3
+
+
+
+
+
+
+
+:^instruction is phase=0 & op0_8=0x72 ; instruction [ prefix=1;  phase=1;]  { }
+:^instruction is phase=0 & op0_8=0x90 ; instruction [ prefix=2;  phase=1;]  { }
+:^instruction is phase=0 & op0_8=0x92 ; instruction [ prefix=3;  phase=1;]  { }
+:^instruction is phase=0 &              instruction [ phase=1;]  { }
+
+ShortMemB: "$"^imm8 is imm8 { export *:1 imm8; }
+LongMemB: "$"^imm16  is imm16 { export *:1 imm16; }
+
+OperandRW8: A        is prefix=0 & mode=4 & A { export A; }
+OperandRW8: ShortMemB is prefix=0 & mode=3; ShortMemB { export ShortMemB; }
+OperandRW8: LongMemB  is prefix=1 & mode=5; LongMemB { export LongMemB; }
+
+:NEG OperandRW8 is (op0_4=0 & op7_1=0) ... & OperandRW8 { 
+   local result:1 = -OperandRW8;
+   #setResultFlags(result);
+   OperandRW8 = result;
+}
