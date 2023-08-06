@@ -1373,7 +1373,7 @@ with :phase=2 {
 }
 
 :MOVC.W #wArgTbl3,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & cReg5_3) ... & wArgTbl3 {
-	cReg5_3 = wArgTbl3;
+	cReg5_3 = wArgTbl3:1;
 }
 
 } # End with :phase=2
