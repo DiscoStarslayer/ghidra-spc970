@@ -9,14 +9,10 @@
 			<body><![CDATA[
 				res = (base << 16) + inner;
 			]]></body>
-			<constresolve>
-				<register name="CP" />
-				<register name="DP" />
-				<register name="EP" />
-				<register name="UTP" />
-				<register name="STP" />
-			</constresolve>
 		</pcode>
+		<constresolve>
+			<register name="UTP" />
+		</constresolve>
 	</segmentop>
 	
 	<default_memory_blocks>

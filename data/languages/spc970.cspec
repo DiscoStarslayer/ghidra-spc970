@@ -20,7 +20,7 @@
       </input>
       <output>
       	<pentry minsize="1" maxsize="1">
-      	  <register name="RB0">
+      	  <register name="RB0"/>
       	</pentry>
         <pentry minsize="2" maxsize="2">
           <register name="RW0"/>
@@ -46,7 +46,7 @@
       </input>
       <output>
     	<pentry minsize="1" maxsize="1">
-      	  <register name="RB0">
+      	  <register name="RB0"/>
       	</pentry>
         <pentry minsize="2" maxsize="2">
           <register name="RW0"/>

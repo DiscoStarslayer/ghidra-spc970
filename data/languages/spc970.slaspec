@@ -63,10 +63,12 @@ define register offset=0x30 size=2 [
 	W150 W151 W152 W153 W154 W155 W156 W157
 ];
 
-define register offset=0x1000 size=4 contextreg;
+define register offset=0x1000 size=16 contextreg;
 define context contextreg
 	phase		= (0,3)
 	prefix		= (8,15)
+	data1		= (16,39)
+	data2		= (40,56)
 ;
 
 define token opbyte (8)
@@ -235,7 +237,6 @@ macro syncPSW() {
 	Z = PSW & 0x1;
 }
 
-simmVal8: #simm8 is simm8 { local tmp:1 = simm8; export tmp; }
 immVal8: #imm8 is imm8 { local tmp:1 = imm8; export tmp; }
 immVal16: #imm16 is imm16 { local tmp:2 = imm16; export tmp; }
 
@@ -244,7 +245,6 @@ cpAddr16: loc is imm16 [ loc = (inst_next & 0xFF0000) + imm16; ] { export *:1 lo
 
 immAddr8: loc is imm8 [ loc = 0 + imm8; ] { export *[io]:1 loc; }
 immAddr24: imm24 is imm24 { export *:1 imm24; }
-wImmAddr24: imm24 is imm24 { export *:2 imm24; }
 
 relAddr8: loc is simm8 [ loc = inst_next + simm8; ] { export *:1 loc; }
 
@@ -255,63 +255,74 @@ bIdx3: opData5_3 is opData5_3 {
 	export tmp; 
 }
 
-bIdx4: imm4_4 is imm4_4 {
-	local tmp:1 = imm4_4;
-	export tmp;
-}
-
 bAddrAbs16: val is imm16 [ val = (DP << 16) + imm16; ] { export *:1 val; }
 wAddrAbs16: val is imm16 [ val = (DP << 16) + imm16; ] { export *:2 val; }
 bAddrAbs24: immAddr24 is immAddr24 { export *:1 immAddr24; }
 wAddrAbs24: immAddr24 is immAddr24 { export *:2 immAddr24; }
 
 ####### OP Preludes
-
-extRegVal: wReg5_3 is (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3) & wReg5_3 { tmp:3 = (zext(DP) << 16) + zext(wReg5_3:1); export tmp; }
-extRegVal: wReg5_3 is (opData5_3=4 | opData5_3=5) & wReg5_3 { tmp:3 = (zext(EP) << 16) + zext(wReg5_3:1); export tmp; }
-extRegVal: wReg5_3 is (opData5_3=6 | opData5_3=7) & wReg5_3 { tmp:3 = (zext(UTP) << 16) + zext(wReg5_3:1); export tmp; }
-
 # Preludes are described as instruction prefixes in context register
 # otherwise the combination of prefixes are OR'ed instead of AND'ed
 
 # argTbl2 prefixes
-:^instruction is phase=0 & op0_4=0x2                 ; instruction [ prefix=0x2 ; phase=1; ] {}
-:^instruction is phase=0 & op0_4=0x3                 ; instruction [ prefix=0x3 ; phase=1; ] {}
-:^instruction is phase=0 & op0_4=0x8 & opHalf4_1=0x0 ; instruction [ prefix=0x80; phase=1; ] {}
-:^instruction is phase=0 & op0_4=0x8 & opHalf4_1=0x1 ; instruction [ prefix=0x81; phase=1; ] {}
-:^instruction is phase=0 & op0_4=0x9 & opHalf4_1=0x0 ; instruction [ prefix=0x90; phase=1; ] {}
-:^instruction is phase=0 & op0_4=0x9 & opHalf4_1=0x1 ; instruction [ prefix=0x91; phase=1; ] {}
-:^instruction is phase=0 & op0_4=0xA & opHalf4_1=0x0 ; instruction [ prefix=0xA0; phase=1; ] {}
-:^instruction is phase=0 & op0_4=0xA & opHalf4_1=0x1 ; instruction [ prefix=0xA1; phase=1; ] {}
-:^instruction is phase=0 & op0_4=0xB & opHalf4_1=0x0 ; instruction [ prefix=0xB0; phase=1; ] {}
-:^instruction is phase=0 & op0_4=0xB & opHalf4_1=0x1 ; instruction [ prefix=0xB1; phase=1; ] {}
-:^instruction is phase=0 & op0_4=0xC & opHalf4_1=0x0 ; instruction [ prefix=0xC0; phase=1; ] {}
-:^instruction is phase=0 & op0_4=0xC & opHalf4_1=0x1 ; instruction [ prefix=0xC1; phase=1; ] {}
-:^instruction is phase=0 & op0_8=0xE0                ; instruction [ prefix=0xE0; phase=1; ] {}
-:^instruction is phase=0 & op0_8=0xE1                ; instruction [ prefix=0xE1; phase=1; ] {}
-:^instruction is phase=0 & op0_8=0xE7                ; instruction [ prefix=0xE7; phase=1; ] {}
-:^instruction is phase=0 & op0_8=0xE8                ; instruction [ prefix=0xE8; phase=1; ] {}
-:^instruction is phase=0 & op0_8=0xE9                ; instruction [ prefix=0xE9; phase=1; ] {}
-:^instruction is phase=0 & op0_8=0xEF                ; instruction [ prefix=0xEF; phase=1; ] {}
+:^instruction is phase=0 & op0_4=0x2 & simm4_4										; instruction [ prefix=0x2 ; phase=1; data1=simm4_4; ] {}
+:^instruction is phase=0 & op0_4=0x3 & simm4_4										; instruction [ prefix=0x3 ; phase=1; data1=simm4_4; ] {}
+:^instruction is phase=0 & op0_4=0x8 & opHalf4_1=0x0 & opData5_3 ; imm8				; instruction [ prefix=0x80; phase=1; data1=opData5_3; data2=imm8; ] {}
+:^instruction is phase=0 & op0_4=0x8 & opHalf4_1=0x1 & opData5_3 ; imm8				; instruction [ prefix=0x81; phase=1; data1=opData5_3; data2=imm8; ] {}
+:^instruction is phase=0 & op0_4=0x9 & opHalf4_1=0x0 & opData5_3 & wReg5_3 ; simm16	; instruction [ prefix=0x90; phase=1; data1=opData5_3; data2=simm16; ] {}
+:^instruction is phase=0 & op0_4=0x9 & opHalf4_1=0x1 & opData5_3 & wReg5_3 ; simm16	; instruction [ prefix=0x91; phase=1; data1=opData5_3; data2=simm16; ] {}
+:^instruction is phase=0 & op0_4=0xA & opHalf4_1=0x0 & opData5_3 & wReg5_3 ; simm8	; instruction [ prefix=0xA0; phase=1; data1=opData5_3; data2=simm8; ] {}
+:^instruction is phase=0 & op0_4=0xA & opHalf4_1=0x1 & opData5_3 & wReg5_3 ; simm8	; instruction [ prefix=0xA1; phase=1; data1=opData5_3; data2=simm8; ] {}
+:^instruction is phase=0 & op0_4=0xB & opHalf4_1=0x0 & opData5_3 					; instruction [ prefix=0xB0; phase=1; data1=opData5_3; ] {}
+:^instruction is phase=0 & op0_4=0xB & opHalf4_1=0x1 & opData5_3 					; instruction [ prefix=0xB1; phase=1; data1=opData5_3; ] {}
+:^instruction is phase=0 & op0_4=0xC & opHalf4_1=0x0 & opData5_3 					; instruction [ prefix=0xC0; phase=1; data1=opData5_3; ] {}
+:^instruction is phase=0 & op0_4=0xC & opHalf4_1=0x1 & opData5_3 					; instruction [ prefix=0xC1; phase=1; data1=opData5_3; ] {}
+:^instruction is phase=0 & op0_8=0xE0									   ; simm16	; instruction [ prefix=0xE0; phase=1; data1=simm16; ] {}
+:^instruction is phase=0 & op0_8=0xE1                                      ; imm24	; instruction [ prefix=0xE1; phase=1; data1=imm24; ] {}
+:^instruction is phase=0 & op0_8=0xE7                								; instruction [ prefix=0xE7; phase=1; ] {}
+:^instruction is phase=0 & op0_8=0xE8                					   ; simm16	; instruction [ prefix=0xE8; phase=1; data1=simm16; ] {}
+:^instruction is phase=0 & op0_8=0xE9                					   ; imm24	; instruction [ prefix=0xE9; phase=1; data1=imm24; ] {}
+:^instruction is phase=0 & op0_8=0xEF                								; instruction [ prefix=0xEF; phase=1; ] {}
 
-# catch all
-# :^instruction is phase=0 &                             instruction [ phase=1; ] {}
+bConToReg: RB0 is data1=0 & RB0 { export RB0; }
+bConToReg: RB1 is data1=1 & RB1 { export RB1; }
+bConToReg: RB2 is data1=2 & RB2 { export RB2; }
+bConToReg: RB3 is data1=3 & RB3 { export RB3; }
+bConToReg: RB4 is data1=4 & RB4 { export RB4; }
+bConToReg: RB5 is data1=5 & RB5 { export RB5; }
+bConToReg: RB6 is data1=6 & RB6 { export RB6; }
+bConToReg: RB7 is data1=7 & RB7 { export RB7; }
+
+wConToReg: RW0 is data1=0 & RW0 { export RW0; }
+wConToReg: RW1 is data1=1 & RW1 { export RW1; }
+wConToReg: RW2 is data1=2 & RW2 { export RW2; }
+wConToReg: RW3 is data1=3 & RW3 { export RW3; }
+wConToReg: RW4 is data1=4 & RW4 { export RW4; }
+wConToReg: RW5 is data1=5 & RW5 { export RW5; }
+wConToReg: FP  is data1=6 & FP  { export FP;  }
+wConToReg: SP  is data1=7 & SP  { export SP;  }
+
+extRegVal: wConToReg is (data1=0 | data1=1 | data1=2 | data1=3) & wConToReg { tmp:3 = (zext(DP) << 16) + zext(wConToReg:2); export tmp; }
+extRegVal: wConToReg is (data1=4 | data1=5) & wConToReg { tmp:3 = (zext(EP) << 16) + zext(wConToReg:2); export tmp; }
+extRegVal: wConToReg is (data1=6 | data1=7) & wConToReg { tmp:3 = (zext(UTP) << 16) + zext(wConToReg:2); export tmp; }
+
+with :phase=1 {
 
 # bFpOffset
-bArgTbl2: @(simm4_4,FP) is prefix=0x2 & simm4_4 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(simm4_4:1); export *:1 ptr; }
-wArgTbl2: @(simm4_4,FP) is prefix=0x3 & simm4_4 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(simm4_4:1); export *:2 ptr; }
+bArgTbl2: @(data1,FP) is prefix=0x2 & data1 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(data1:1); export *:1 ptr; }
+wArgTbl2: @(data1,FP) is prefix=0x3 & data1 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(data1:1); export *:2 ptr; }
 
 # bImmAddr11
-bArgTbl2: val is prefix=0x80 & opData5_3; imm8 [ val = (opData5_3 << 8) + imm8; ] { tmp:3 = zext(val:2); export *:1 tmp; }
-wArgTbl2: val is prefix=0x81 & opData5_3; imm8 [ val = (opData5_3 << 8) + imm8; ] { tmp:3 = zext(val:2); export *:2 tmp; }
+bArgTbl2: val is prefix=0x80 & data1 & data2 [ val = (data1 << 8) + data2; ] { tmp:3 = zext(val:2); export *:1 tmp; }
+wArgTbl2: val is prefix=0x81 & data1 & data2 [ val = (data1 << 8) + data2; ] { tmp:3 = zext(val:2); export *:2 tmp; }
 
 # bRW2Offset
-bArgTbl2: @(simm16,extRegVal) is prefix=0x90 & extRegVal; simm16 { ptr:3 = extRegVal + sext(simm16:2); export *:1 ptr; }
-wArgTbl2: @(simm16,extRegVal) is prefix=0x91 & extRegVal; simm16 { ptr:3 = extRegVal + sext(simm16:2); export *:2 ptr; }
+bArgTbl2: @(data2,extRegVal) is prefix=0x90 & extRegVal & data2 { ptr:3 = extRegVal + sext(data2:2); export *:1 ptr; }
+wArgTbl2: @(data2,extRegVal) is prefix=0x91 & extRegVal & data2 { ptr:3 = extRegVal + sext(data2:2); export *:2 ptr; }
 
 # bRWOffset
-bArgTbl2: @(simm8,extRegVal) is prefix=0xA0 & extRegVal; simm8 { ptr:3 = extRegVal + sext(simm8:1); export *:1 ptr; }
-wArgTbl2: @(simm8,extRegVal) is prefix=0xA1 & extRegVal; simm8 { ptr:3 = extRegVal + sext(simm8:1); export *:2 ptr; }
+bArgTbl2: @(data2,extRegVal) is prefix=0xA0 & extRegVal & data2 { ptr:3 = extRegVal + sext(data2:1); export *:1 ptr; }
+wArgTbl2: @(data2,extRegVal) is prefix=0xA1 & extRegVal & data2 { ptr:3 = extRegVal + sext(data2:1); export *:2 ptr; }
 
 # bRWAddr
 bArgTbl2: @(extRegVal) is prefix=0xB0 & extRegVal { export *:1 extRegVal; }
@@ -319,23 +330,23 @@ wArgTbl2: @(extRegVal) is prefix=0xB1 & extRegVal { export *:2 extRegVal; }
 
 # rbDir
 #bTbl4: bReg5_3 is op0_4=0x1 & opHalf4_1=0x0 & bReg5_3 { export bReg5_3; }
-bArgTbl2: bReg5_3 is prefix=0xC0 & bReg5_3 { export bReg5_3; }
-wArgTbl2: wReg5_3 is prefix=0xC1 & wReg5_3 { export wReg5_3; }
+bArgTbl2: bConToReg is prefix=0xC0 & bConToReg { export bConToReg; }
+wArgTbl2: wConToReg is prefix=0xC1 & wConToReg { export wConToReg; }
 
 #bTbl3: opData5_3 is op0_4=0xD & opHalf4_1=0x0 & opData5_3 { tmp:1 = zext(opData5_3:1); export tmp; }
 #wTbl3: opData5_3 is op0_4=0xD & opHalf4_1=0x1 & opData5_3 { tmp:2 = zext(opData5_3:1); export tmp; }
 
 # bAddrAbs16
-bArgTbl2: val is prefix=0xE0; imm16 [ val = (DP << 16) + imm16; ] { export *:1 val; }
+bArgTbl2: val is prefix=0xE0 & data1 [ val = (DP << 16) + data1; ] { export *:1 val; }
 # bAddrAbs24
-bArgTbl2: immAddr24 is prefix=0xE1; immAddr24 { export *:1 immAddr24; }
+bArgTbl2: data1 is prefix=0xE1 & data1 { export *:1 data1; }
 #bTbl3_8: immVal8 is op0_8=0xE2; immVal8 { export immVal8; }
 
 # :POP.B ? is op0_8=0xE7 tbl2
 bArgTbl2: @(SP+) is prefix=0xE7 & SP { ptr:3 = segment(UTP,SP); SP = SP + 2; export *:1 ptr; }
 
-wArgTbl2: val is prefix=0xE8; imm16 [ val = (DP << 16) + imm16; ] { export *:2 val; }
-wArgTbl2: wImmAddr24 is prefix=0xE9; wImmAddr24 { export *:2 wImmAddr24; }
+wArgTbl2: val is prefix=0xE8 & data1 [ val = (DP << 16) + data1; ] { export *:2 val; }
+wArgTbl2: data1 is prefix=0xE9 & data1 { export *:2 data1; }
 #wTbl3_16: immVal16 is op0_8=0xEA; immVal16 { export immVal16; }
 #wTbl3_8: immVal8 is op0_8=0xFE; immVal8 { tmp:2 = zext(immVal8); export tmp; }
 
@@ -343,6 +354,8 @@ wArgTbl2: wImmAddr24 is prefix=0xE9; wImmAddr24 { export *:2 wImmAddr24; }
 wArgTbl2: @(SP+) is prefix=0xEF & SP { ptr:3 = segment(UTP,SP); SP = SP + 2; export *:2 ptr; }
 
 # :TBL5 ? is op0_8=0xF3
+
+} # end :phase=1
 
 ####### END OP Preludes
 
