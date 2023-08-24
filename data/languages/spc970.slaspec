@@ -151,6 +151,8 @@ define pcodeop enableInterrupts;
 define pcodeop disableInterrupts;
 
 define pcodeop loadCtx;
+define pcodeop sleep;
+define pcodeop stop;
 
 # Macro for changing register bank
 @define NUMREGBANKS 16
@@ -266,6 +268,10 @@ wAddrAbs16: val is imm16 [ val = (DP << 16) + imm16; ] { export *:2 val; }
 bAddrAbs24: immAddr24 is immAddr24 { export *:1 immAddr24; }
 wAddrAbs24: immAddr24 is immAddr24 { export *:2 immAddr24; }
 
+regIndirect: wReg5_3 is (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3) & wReg5_3 { tmp:3 = (zext(DP) << 16) + zext(wReg5_3); export *:1 tmp; }
+regIndirect: wReg5_3 is (opData5_3=4 | opData5_3=5) & wReg5_3 { tmp:3 = (zext(EP) << 16) + zext(wReg5_3:2); export *:1 tmp; }
+regIndirect: wReg5_3 is (opData5_3=6 | opData5_3=7) & wReg5_3 { tmp:3 = (zext(UTP) << 16) + zext(wReg5_3:2); export *:1 tmp; }
+
 ####### OP Preludes
 # Preludes are described as instruction prefixes in context register
 # otherwise the combination of prefixes are OR'ed instead of AND'ed
@@ -299,6 +305,14 @@ wAddrAbs24: immAddr24 is immAddr24 { export *:2 immAddr24; }
 
 # Table 4 preludes
 :^instruction is phase=0 & op0_4=0x1 & opHalf4_1=0 & opData5_3						; instruction [ prefix=0x10; phase=3; data1=opData5_3; ] {}
+
+# Table 5 preludes
+:^instruction is phase=0 & op0_8=0xF3												; instruction [ prefix=0xF3; phase=4; ] {}
+# TODO: Hack, using undefined prefixes to signal entry point is tbl5
+:^instruction is phase=4 & op0_4=0x9 & opHalf4_1=0 & opData5_3						; instruction [ prefix=0xF0; phase=1; data1=opData5_3; ] {}
+:^instruction is phase=4 & op0_4=0x9 & opHalf4_1=1 & opData5_3						; instruction [ prefix=0xF1; phase=1; data1=opData5_3; ] {}
+:^instruction is phase=4 & op0_4=0xA & opHalf4_1=0 & opData5_3						; instruction [ prefix=0xF2; phase=1; data1=opData5_3; ] {}
+:^instruction is phase=4 & op0_4=0xA & opHalf4_1=1 & opData5_3						; instruction [ prefix=0xF3; phase=1; data1=opData5_3; ] {}
 
 bConToReg: RB0 is data1=0 & RB0 { export RB0; }
 bConToReg: RB1 is data1=1 & RB1 { export RB1; }
@@ -337,6 +351,14 @@ extRegVal: wConToReg is (data1=0 | data1=1 | data1=2 | data1=3) & wConToReg { tm
 extRegVal: wConToReg is (data1=4 | data1=5) & wConToReg { tmp:3 = (zext(EP) << 16) + zext(wConToReg:2); export tmp; }
 extRegVal: wConToReg is (data1=6 | data1=7) & wConToReg { tmp:3 = (zext(UTP) << 16) + zext(wConToReg:2); export tmp; }
 
+predExtRegVal: wConToReg is (data1=0 | data1=1 | data1=2 | data1=3) & wConToReg { wConToReg = wConToReg - 1; tmp:3 = (zext(DP) << 16) + zext(wConToReg:2); export tmp; }
+predExtRegVal: wConToReg is (data1=4 | data1=5) & wConToReg { wConToReg = wConToReg - 1; tmp:3 = (zext(EP) << 16) + zext(wConToReg:2); export tmp; }
+predExtRegVal: wConToReg is (data1=6 | data1=7) & wConToReg { wConToReg = wConToReg - 1; tmp:3 = (zext(UTP) << 16) + zext(wConToReg:2); export tmp; }
+
+pstiExtRegVal: wConToReg is (data1=0 | data1=1 | data1=2 | data1=3) & wConToReg { tmp:3 = (zext(DP) << 16) + zext(wConToReg:2); wConToReg = wConToReg + 1; export tmp; }
+pstiExtRegVal: wConToReg is (data1=4 | data1=5) & wConToReg { tmp:3 = (zext(EP) << 16) + zext(wConToReg:2); wConToReg = wConToReg + 1; export tmp; }
+pstiExtRegVal: wConToReg is (data1=6 | data1=7) & wConToReg { tmp:3 = (zext(UTP) << 16) + zext(wConToReg:2); wConToReg = wConToReg + 1; export tmp; }
+
 with :phase=1 {
 
 # bFpOffset
@@ -374,7 +396,11 @@ wArgTbl2: data1 is prefix=0xE9 & data1 { export *:2 data1; }
 
 wArgTbl2: @(SP+) is prefix=0xEF & SP { ptr:3 = segment(UTP,SP); SP = SP + 2; export *:2 ptr; }
 
-# :TBL5 ? is op0_8=0xF3
+# TODO: Hack, these are from tbl5, begin from 0xF0, no collisions
+bArgTbl2: @(-predExtRegVal) is prefix=0xF0 & predExtRegVal { export *:1 predExtRegVal; }
+wArgTbl2: @(-predExtRegVal) is prefix=0xF1 & predExtRegVal { export *:2 predExtRegVal; }
+bArgTbl2: @(pstiExtRegVal+) is prefix=0xF2 & pstiExtRegVal { export *:1 pstiExtRegVal; }
+wArgTbl2: @(pstiExtRegVal+) is prefix=0xF3 & pstiExtRegVal { export *:2 pstiExtRegVal; }
 
 } # end :phase=1
 
@@ -396,6 +422,12 @@ lArgTbl4: lConToReg is prefix=0x10 & lConToReg { export lConToReg; }
 cArgTbl4: cConToReg is prefix=0x10 & cConToReg { export cConToReg; }
 
 } # end :phase=3
+
+with :phase=4 {
+
+tbl5RelAddr: loc is simm8 [ loc = inst_next + simm8; ] { export *:1 loc; }
+
+} # end :phase=4
 
 ####### END OP Preludes
 
@@ -1607,3 +1639,46 @@ with :phase=3 {
 } # End with :phase=3
 
 ####### TABLE 5
+
+with :phase=4 {
+
+:B^cc tbl5RelAddr is (op0_4=0x0 & cc; tbl5RelAddr; imm8) ... {
+	if (cc) goto tbl5RelAddr;
+}
+
+:DBNZ.B bReg5_3,relAddr8 is (op0_4=0x3 & opHalf4_1=0 & bReg5_3; relAddr8) ... {
+	bReg5_3 = bReg5_3 - 1;
+	if (bReg5_3 != 0) goto relAddr8;
+}
+
+:DBNZ.W wReg5_3,relAddr8 is (op0_4=0x3 & opHalf4_1=1 & wReg5_3; relAddr8) ... {
+	wReg5_3 = wReg5_3 - 1;
+	if (wReg5_3 != 0) goto relAddr8;
+}
+
+:JMP @(regIndirect) is (op0_4=0xC & opHalf4_1=0 & regIndirect) ... {
+	goto regIndirect;
+}
+
+:JSR @(regIndirect) is (op0_4=0xC & opHalf4_1=1 & regIndirect) ... {
+	push16(&:2 inst_next);
+	call regIndirect;
+}
+
+:POPC cReg5_3 is (op0_4=0xD & opHalf4_1=0 & cReg5_3) ... {
+	pop8(cReg5_3);
+} 
+
+:PUSHC cReg5_3 is (op0_4=0xD & opHalf4_1=1 & cReg5_3) ... {
+	push8(cReg5_3);
+} 
+
+:SLEEP is (op0_8=0xE2) ... {
+	sleep();
+}
+
+:STOP is (op0_8=0xE3) ... {
+	stop();
+}
+
+} # End with :phase=4
