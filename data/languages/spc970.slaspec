@@ -66,7 +66,6 @@ define register offset=0x30 size=2 [
 define register offset=0x1000 size=16 contextreg;
 define context contextreg
 	phase		= (0,3)
-	width		= (4,5)
 	prefix		= (8,15)
 	data1		= (16,39)
 	data2		= (40,56)
@@ -379,9 +378,9 @@ bArgTbl3: data1 is prefix=0xE2 & data1 { tmp:1 = data1; export tmp; }
 
 with :phase=3 {
 
-bArgTbl4: bConToReg is prefix=0x10 & bConToReg [ width=0; ] { export bConToReg; }
-wArgTbl4: wConToReg is prefix=0x10 & wConToReg [ width=1; ] { export wConToReg; }
-lArgTbl4: lConToReg is prefix=0x10 & lConToReg [ width=2; ] { export lConToReg; }
+bArgTbl4: bConToReg is prefix=0x10 & bConToReg { export bConToReg; }
+wArgTbl4: wConToReg is prefix=0x10 & wConToReg { export wConToReg; }
+lArgTbl4: lConToReg is prefix=0x10 & lConToReg { export lConToReg; }
 
 } # end :phase=3
 
@@ -1398,403 +1397,127 @@ with :phase=2 {
 
 with :phase=3 {
 
-:SHAL.B bArgTbl4,bReg5_3 is (width=0 & op0_4=0x0 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
+:SHAL.B bArgTbl4,bReg5_3 is (op0_4=0x0 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
 	bReg5_3 = bArgTbl4 << 1;
 	zeroFlags(bReg5_3);
 }
 
-:SHAL.W bArgTbl4,wReg5_3 is (width=0 & op0_4=0x0 & opHalf4_1=1 & wReg5_3) ... & bArgTbl4 {
+:SHAL.W bArgTbl4,wReg5_3 is (op0_4=0x0 & opHalf4_1=1 & wReg5_3) ... & bArgTbl4 {
 	wReg5_3 = zext(bArgTbl4 << 1);
 	zeroFlags(wReg5_3);
 }
 
-:SHAL.B wArgTbl4,bReg5_3 is (width=1 & op0_4=0x0 & opHalf4_1=0 & bReg5_3) ... & wArgTbl4 {
-	tmp:2 = wArgTbl4 << 1;
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:SHAL.W wArgTbl4,wReg5_3 is (width=1 & op0_4=0x0 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
-	wReg5_3 = wArgTbl4 << 1;
-	zeroFlags(wReg5_3);
-}
-
-:SHAL.B lArgTbl4,bReg5_3 is (width=2 & op0_4=0x0 & opHalf4_1=0 & bReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 << 1;
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:SHAL.W lArgTbl4,wReg5_3 is (width=2 & op0_4=0x0 & opHalf4_1=1 & wReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 << 1;
-	wReg5_3 = tmp:2;
-	zeroFlags(wReg5_3);
-}
-
-:SHAR.B bArgTbl4,bReg5_3 is (width=0 & op0_4=0x1 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
+:SHAR.B bArgTbl4,bReg5_3 is (op0_4=0x1 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
 	bReg5_3 = bArgTbl4 s>> 1;
 	zeroFlags(bReg5_3);
 }
 
-:SHAR.W bArgTbl4,wReg5_3 is (width=0 & op0_4=0x1 & opHalf4_1=1 & wReg5_3) ... & bArgTbl4 {
-	wReg5_3 = zext(bArgTbl4 s>> 1);
-	zeroFlags(wReg5_3);
-}
-
-:SHAR.B wArgTbl4,bReg5_3 is (width=1 & op0_4=0x1 & opHalf4_1=0 & bReg5_3) ... & wArgTbl4 {
-	tmp:2 = wArgTbl4 s>> 1;
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:SHAR.W wArgTbl4,wReg5_3 is (width=1 & op0_4=0x1 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
+:SHAR.W wArgTbl4,wReg5_3 is (op0_4=0x1 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
 	wReg5_3 = wArgTbl4 s>> 1;
 	zeroFlags(wReg5_3);
 }
 
-:SHAR.B lArgTbl4,bReg5_3 is (width=2 & op0_4=0x1 & opHalf4_1=0 & bReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 s>> 1;
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:SHAR.W lArgTbl4,wReg5_3 is (width=2 & op0_4=0x1 & opHalf4_1=1 & wReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 s>> 1;
-	wReg5_3 = tmp:2;
-	zeroFlags(wReg5_3);
-}
-
-:SHLL.B bArgTbl4,bReg5_3 is (width=0 & op0_4=0x2 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
+:SHLL.B bArgTbl4,bReg5_3 is (op0_4=0x2 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
 	bReg5_3 = bArgTbl4 << 1;
 	zeroFlags(bReg5_3);
 }
 
-:SHLL.W bArgTbl4,wReg5_3 is (width=0 & op0_4=0x2 & opHalf4_1=1 & wReg5_3) ... & bArgTbl4 {
-	wReg5_3 = zext(bArgTbl4 << 1);
-	zeroFlags(wReg5_3);
-}
-
-:SHLL.B wArgTbl4,bReg5_3 is (width=1 & op0_4=0x2 & opHalf4_1=0 & bReg5_3) ... & wArgTbl4 {
-	tmp:2 = wArgTbl4 << 1;
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:SHLL.W wArgTbl4,wReg5_3 is (width=1 & op0_4=0x2 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
+:SHLL.W wArgTbl4,wReg5_3 is (op0_4=0x2 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
 	wReg5_3 = wArgTbl4 << 1;
 	zeroFlags(wReg5_3);
 }
 
-:SHLL.B lArgTbl4,bReg5_3 is (width=2 & op0_4=0x2 & opHalf4_1=0 & bReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 << 1;
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:SHLL.W lArgTbl4,wReg5_3 is (width=2 & op0_4=0x2 & opHalf4_1=1 & wReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 << 1;
-	wReg5_3 = tmp:2;
-	zeroFlags(wReg5_3);
-}
-
-:SHLR.B bArgTbl4,bReg5_3 is (width=0 & op0_4=0x3 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
+:SHLR.B bArgTbl4,bReg5_3 is (op0_4=0x3 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
 	bReg5_3 = bArgTbl4 >> 1;
 	zeroFlags(bReg5_3);
 }
 
-:SHLR.W bArgTbl4,wReg5_3 is (width=0 & op0_4=0x3 & opHalf4_1=1 & wReg5_3) ... & bArgTbl4 {
-	wReg5_3 = zext(bArgTbl4 >> 1);
-	zeroFlags(wReg5_3);
-}
-
-:SHLR.B wArgTbl4,bReg5_3 is (width=1 & op0_4=0x3 & opHalf4_1=0 & bReg5_3) ... & wArgTbl4 {
-	tmp:2 = wArgTbl4 >> 1;
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:SHLR.W wArgTbl4,wReg5_3 is (width=1 & op0_4=0x3 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
+:SHLR.W wArgTbl4,wReg5_3 is (op0_4=0x3 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
 	wReg5_3 = wArgTbl4 >> 1;
 	zeroFlags(wReg5_3);
 }
 
-:SHLR.B lArgTbl4,bReg5_3 is (width=2 & op0_4=0x3 & opHalf4_1=0 & bReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 >> 1;
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:SHLR.W lArgTbl4,wReg5_3 is (width=2 & op0_4=0x3 & opHalf4_1=1 & wReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 >> 1;
-	wReg5_3 = tmp:2;
-	zeroFlags(wReg5_3);
-}
-
-:ROTL.B bArgTbl4,bReg5_3 is (width=0 & op0_4=0x4 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
+:ROTL.B bArgTbl4,bReg5_3 is (op0_4=0x4 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
 	bReg5_3 = bArgTbl4 << 1;
 	bReg5_3 = bReg5_3 + (bArgTbl4 >> 7);
 	zeroFlags(bReg5_3);
 }
 
-:ROTL.W bArgTbl4,wReg5_3 is (width=0 & op0_4=0x4 & opHalf4_1=1 & wReg5_3) ... & bArgTbl4 {
-	wReg5_3 = zext(bArgTbl4 << 1);
-	wReg5_3 = wReg5_3 + zext(bArgTbl4 >> 7);
-	zeroFlags(wReg5_3);
-}
-
-:ROTL.B wArgTbl4,bReg5_3 is (width=1 & op0_4=0x4 & opHalf4_1=0 & bReg5_3) ... & wArgTbl4 {
-	tmp:2 = wArgTbl4 << 1;
-	tmp = tmp + (wArgTbl4 >> 15);
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:ROTL.W wArgTbl4,wReg5_3 is (width=1 & op0_4=0x4 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
+:ROTL.W wArgTbl4,wReg5_3 is (op0_4=0x4 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
 	wReg5_3 = wArgTbl4 << 1;
 	wReg5_3 = wReg5_3 + (wArgTbl4 >> 15);
 	zeroFlags(wReg5_3);
 }
 
-:ROTL.B lArgTbl4,bReg5_3 is (width=2 & op0_4=0x4 & opHalf4_1=0 & bReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 << 1;
-	tmp = tmp + (lArgTbl4 >> 31);
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:ROTL.W lArgTbl4,wReg5_3 is (width=2 & op0_4=0x4 & opHalf4_1=1 & wReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 << 1;
-	tmp = tmp + (lArgTbl4 >> 31);
-	wReg5_3 = tmp:2;
-	zeroFlags(wReg5_3);
-}
-
-:ROTR.B bArgTbl4,bReg5_3 is (width=0 & op0_4=0x5 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
+:ROTR.B bArgTbl4,bReg5_3 is (op0_4=0x5 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
 	bReg5_3 = bArgTbl4 >> 1;
 	bReg5_3 = bReg5_3 + (bArgTbl4 << 7);
 	zeroFlags(bReg5_3);
 }
 
-:ROTR.W bArgTbl4,wReg5_3 is (width=0 & op0_4=0x5 & opHalf4_1=1 & wReg5_3) ... & bArgTbl4 {
-	wReg5_3 = zext(bArgTbl4 >> 1);
-	wReg5_3 = wReg5_3 + zext(bArgTbl4 << 7);
-	zeroFlags(wReg5_3);
-}
-
-:ROTR.B wArgTbl4,bReg5_3 is (width=1 & op0_4=0x5 & opHalf4_1=0 & bReg5_3) ... & wArgTbl4 {
-	tmp:2 = wArgTbl4 >> 1;
-	tmp = tmp + (wArgTbl4 << 15);
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:ROTR.W wArgTbl4,wReg5_3 is (width=1 & op0_4=0x5 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
+:ROTR.W wArgTbl4,wReg5_3 is (op0_4=0x5 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
 	wReg5_3 = wArgTbl4 >> 1;
 	wReg5_3 = wReg5_3 + (wArgTbl4 << 15);
 	zeroFlags(wReg5_3);
 }
 
-:ROTR.B lArgTbl4,bReg5_3 is (width=2 & op0_4=0x5 & opHalf4_1=0 & bReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 >> 1;
-	tmp = tmp + (lArgTbl4 << 31);
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:ROTR.W lArgTbl4,wReg5_3 is (width=2 & op0_4=0x5 & opHalf4_1=1 & wReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 >> 1;
-	tmp = tmp + (lArgTbl4 << 31);
-	wReg5_3 = tmp:2;
-	zeroFlags(wReg5_3);
-}
-
-:SHXL.B bArgTbl4,bReg5_3 is (width=0 & op0_4=0x6 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
+:SHXL.B bArgTbl4,bReg5_3 is (op0_4=0x6 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
 	bReg5_3 = (bArgTbl4 << 1) + X;
 	zeroFlags(bReg5_3);
 }
 
-:SHXL.W bArgTbl4,wReg5_3 is (width=0 & op0_4=0x6 & opHalf4_1=1 & wReg5_3) ... & bArgTbl4 {
-	wReg5_3 = zext(bArgTbl4 << 1) + zext(X);
-	zeroFlags(wReg5_3);
-}
-
-:SHXL.B wArgTbl4,bReg5_3 is (width=1 & op0_4=0x6 & opHalf4_1=0 & bReg5_3) ... & wArgTbl4 {
-	tmp:2 = (wArgTbl4 << 1) + zext(X);
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:SHXL.W wArgTbl4,wReg5_3 is (width=1 & op0_4=0x6 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
+:SHXL.W wArgTbl4,wReg5_3 is (op0_4=0x6 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
 	wReg5_3 = (wArgTbl4 << 1) + zext(X);
 	zeroFlags(wReg5_3);
 }
 
-:SHXL.B lArgTbl4,bReg5_3 is (width=2 & op0_4=0x6 & opHalf4_1=0 & bReg5_3) ... & lArgTbl4 {
-	tmp:4 = (lArgTbl4 << 1) + zext(X);
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:SHXL.W lArgTbl4,wReg5_3 is (width=2 & op0_4=0x6 & opHalf4_1=1 & wReg5_3) ... & lArgTbl4 {
-	tmp:4 = (lArgTbl4 << 1) + zext(X);
-	wReg5_3 = tmp:2;
-	zeroFlags(wReg5_3);
-}
-
-:SHXR.B bArgTbl4,bReg5_3 is (width=0 & op0_4=0x7 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
+:SHXR.B bArgTbl4,bReg5_3 is (op0_4=0x7 & opHalf4_1=0 & bReg5_3) ... & bArgTbl4 {
 	bReg5_3 = (bArgTbl4 >> 1) + (X << 7);
 	zeroFlags(bReg5_3);
 }
 
-:SHXR.W bArgTbl4,wReg5_3 is (width=0 & op0_4=0x7 & opHalf4_1=1 & wReg5_3) ... & bArgTbl4 {
-	wReg5_3 = zext(bArgTbl4 << 1) + (zext(X) << 15);
-	zeroFlags(wReg5_3);
-}
-
-:SHXR.B wArgTbl4,bReg5_3 is (width=1 & op0_4=0x7 & opHalf4_1=0 & bReg5_3) ... & wArgTbl4 {
-	tmp:2 = (wArgTbl4 << 1) + (zext(X) << 15);
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:SHXR.W wArgTbl4,wReg5_3 is (width=1 & op0_4=0x7 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
+:SHXR.W wArgTbl4,wReg5_3 is (op0_4=0x7 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
 	wReg5_3 = (wArgTbl4 << 1) + (zext(X) << 15);
 	zeroFlags(wReg5_3);
 }
 
-:SHXR.B lArgTbl4,bReg5_3 is (width=2 & op0_4=0x7 & opHalf4_1=0 & bReg5_3) ... & lArgTbl4 {
-	tmp:4 = (lArgTbl4 << 1) + (zext(X) << 31);
-	bReg5_3 = tmp:1;
-	zeroFlags(bReg5_3);
-}
-
-:SHXR.W lArgTbl4,wReg5_3 is (width=2 & op0_4=0x7 & opHalf4_1=1 & wReg5_3) ... & lArgTbl4 {
-	tmp:4 = (lArgTbl4 << 1) + (zext(X) << 31);
-	wReg5_3 = tmp:2;
-	zeroFlags(wReg5_3);
-}
-
-:MULU bArgTbl4,lReg5_3 is (width=0 & op0_4=0xA & opHalf4_1=0 & lReg5_3 & wReg5_3) ... & bArgTbl4 {
-	lReg5_3 = zext(bArgTbl4) * zext(wReg5_3);
+:MULU wArgTbl4,lReg5_3 is (op0_4=0xA & opHalf4_1=0 & lReg5_3) ... & wArgTbl4 {
+	lReg5_3 = zext(wArgTbl4) * lReg5_3;
 	zeroFlags(lReg5_3);
 }
 
-:MULU wArgTbl4,lReg5_3 is (width=1 & op0_4=0xA & opHalf4_1=0 & lReg5_3 & wReg5_3) ... & wArgTbl4 {
-	lReg5_3 = zext(wArgTbl4) * zext(wReg5_3);
+:DIVU wArgTbl4,lReg5_3 is (op0_4=0xA & opHalf4_1=1 & lReg5_3) ... & wArgTbl4 {
+	lReg5_3 = zext(wArgTbl4) / lReg5_3;
 	zeroFlags(lReg5_3);
 }
 
-:MULU lArgTbl4,lReg5_3 is (width=2 & op0_4=0xA & opHalf4_1=0 & lReg5_3 & wReg5_3) ... & lArgTbl4 {
-	lReg5_3 = lArgTbl4 * zext(wReg5_3);
+:MUL wArgTbl4,lReg5_3 is (op0_4=0xB & opHalf4_1=0 & lReg5_3) ... & wArgTbl4 {
+	lReg5_3 = sext(wArgTbl4) * lReg5_3;
 	zeroFlags(lReg5_3);
 }
 
-:DIVU bArgTbl4,lReg5_3 is (width=0 & op0_4=0xA & opHalf4_1=1 & lReg5_3 & wReg5_3) ... & bArgTbl4 {
-	lReg5_3 = zext(bArgTbl4) / zext(wReg5_3);
+:DIV wArgTbl4,lReg5_3 is (op0_4=0xB & opHalf4_1=1 & lReg5_3) ... & wArgTbl4 {
+	lReg5_3 = sext(wArgTbl4) s/ lReg5_3;
 	zeroFlags(lReg5_3);
 }
 
-:DIVU wArgTbl4,lReg5_3 is (width=1 & op0_4=0xA & opHalf4_1=1 & lReg5_3 & wReg5_3) ... & wArgTbl4 {
-	lReg5_3 = zext(wArgTbl4) / zext(wReg5_3);
-	zeroFlags(lReg5_3);
-}
-
-:DIVU lArgTbl4,lReg5_3 is (width=2 & op0_4=0xA & opHalf4_1=1 & lReg5_3 & wReg5_3) ... & lArgTbl4 {
-	lReg5_3 = lArgTbl4 / zext(wReg5_3);
-	zeroFlags(lReg5_3);
-}
-
-:MUL bArgTbl4,lReg5_3 is (width=0 & op0_4=0xB & opHalf4_1=0 & lReg5_3 & wReg5_3) ... & bArgTbl4 {
-	lReg5_3 = sext(bArgTbl4) * sext(wReg5_3);
-	zeroFlags(lReg5_3);
-}
-
-:MUL wArgTbl4,lReg5_3 is (width=1 & op0_4=0xB & opHalf4_1=0 & lReg5_3 & wReg5_3) ... & wArgTbl4 {
-	lReg5_3 = sext(wArgTbl4) * sext(wReg5_3);
-	zeroFlags(lReg5_3);
-}
-
-:MUL lArgTbl4,lReg5_3 is (width=2 & op0_4=0xB & opHalf4_1=0 & lReg5_3 & wReg5_3) ... & lArgTbl4 {
-	lReg5_3 = lArgTbl4 * sext(wReg5_3);
-	zeroFlags(lReg5_3);
-}
-
-:DIV bArgTbl4,lReg5_3 is (width=0 & op0_4=0xB & opHalf4_1=1 & lReg5_3 & wReg5_3) ... & bArgTbl4 {
-	lReg5_3 = sext(bArgTbl4) s/ sext(wReg5_3);
-	zeroFlags(lReg5_3);
-}
-
-:DIV wArgTbl4,lReg5_3 is (width=1 & op0_4=0xB & opHalf4_1=1 & lReg5_3 & wReg5_3) ... & wArgTbl4 {
-	lReg5_3 = sext(wArgTbl4) s/ sext(wReg5_3);
-	zeroFlags(lReg5_3);
-}
-
-:DIV lArgTbl4,lReg5_3 is (width=2 & op0_4=0xB & opHalf4_1=1 & lReg5_3 & wReg5_3) ... & lArgTbl4 {
-	lReg5_3 = lArgTbl4 s/ sext(wReg5_3);
-	zeroFlags(lReg5_3);
-}
-
-:MULU bArgTbl4,wReg5_3 is (width=0 & op0_4=0xC & opHalf4_1=0 & bReg5_3 & wReg5_3) ... & bArgTbl4 {
+:MULU bArgTbl4,wReg5_3 is (op0_4=0xC & opHalf4_1=0 & bReg5_3 & wReg5_3) ... & bArgTbl4 {
 	wReg5_3 = zext(bArgTbl4) * zext(bReg5_3);
 	zeroFlags(wReg5_3);
 }
 
-:MULU wArgTbl4,wReg5_3 is (width=1 & op0_4=0xC & opHalf4_1=0 & bReg5_3 & wReg5_3) ... & wArgTbl4 {
-	wReg5_3 = wArgTbl4 * zext(bReg5_3);
-	zeroFlags(wReg5_3);
-}
-
-:MULU lArgTbl4,wReg5_3 is (width=2 & op0_4=0xC & opHalf4_1=0 & bReg5_3 & wReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 * zext(bReg5_3);
-	wReg5_3 = tmp:2;
-	zeroFlags(wReg5_3);
-}
-
-:DIVU bArgTbl4,wReg5_3 is (width=0 & op0_4=0xC & opHalf4_1=1 & bReg5_3 & wReg5_3) ... & bArgTbl4 {
+:DIVU bArgTbl4,wReg5_3 is (op0_4=0xC & opHalf4_1=1 & bReg5_3 & wReg5_3) ... & bArgTbl4 {
 	wReg5_3 = zext(bArgTbl4) / zext(bReg5_3);
 	zeroFlags(wReg5_3);
 }
 
-:DIVU wArgTbl4,wReg5_3 is (width=1 & op0_4=0xC & opHalf4_1=1 & bReg5_3 & wReg5_3) ... & wArgTbl4 {
-	wReg5_3 = wArgTbl4 / zext(bReg5_3);
-	zeroFlags(wReg5_3);
-}
-
-:DIVU lArgTbl4,wReg5_3 is (width=2 & op0_4=0xC & opHalf4_1=1 & bReg5_3 & wReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 / zext(bReg5_3);
-	wReg5_3 = tmp:2;
-	zeroFlags(wReg5_3);
-}
-
-:MUL bArgTbl4,wReg5_3 is (width=0 & op0_4=0xD & opHalf4_1=0 & bReg5_3 & wReg5_3) ... & bArgTbl4 {
+:MUL bArgTbl4,wReg5_3 is (op0_4=0xD & opHalf4_1=0 & bReg5_3 & wReg5_3) ... & bArgTbl4 {
 	wReg5_3 = sext(bArgTbl4) * sext(bReg5_3);
 	zeroFlags(wReg5_3);
 }
 
-:MUL wArgTbl4,wReg5_3 is (width=1 & op0_4=0xD & opHalf4_1=0 & bReg5_3 & wReg5_3) ... & wArgTbl4 {
-	wReg5_3 = wArgTbl4 * sext(bReg5_3);
-	zeroFlags(wReg5_3);
-}
-
-:MUL lArgTbl4,wReg5_3 is (width=2 & op0_4=0xD & opHalf4_1=0 & bReg5_3 & wReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 * sext(bReg5_3);
-	wReg5_3 = tmp:2;
-	zeroFlags(wReg5_3);
-}
-
-:DIV bArgTbl4,wReg5_3 is (width=0 & op0_4=0xD & opHalf4_1=1 & bReg5_3 & wReg5_3) ... & bArgTbl4 {
+:DIV bArgTbl4,wReg5_3 is (op0_4=0xD & opHalf4_1=1 & bReg5_3 & wReg5_3) ... & bArgTbl4 {
 	wReg5_3 = sext(bArgTbl4) s/ sext(bReg5_3);
-	zeroFlags(wReg5_3);
-}
-
-:DIV wArgTbl4,wReg5_3 is (width=1 & op0_4=0xD & opHalf4_1=1 & bReg5_3 & wReg5_3) ... & wArgTbl4 {
-	wReg5_3 = wArgTbl4 s/ sext(bReg5_3);
-	zeroFlags(wReg5_3);
-}
-
-:DIV lArgTbl4,wReg5_3 is (width=2 & op0_4=0xD & opHalf4_1=1 & bReg5_3 & wReg5_3) ... & lArgTbl4 {
-	tmp:4 = lArgTbl4 s/ sext(bReg5_3);
-	wReg5_3 = tmp:2;
 	zeroFlags(wReg5_3);
 }
 
