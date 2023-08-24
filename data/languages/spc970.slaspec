@@ -22,8 +22,8 @@ define register offset=0x00 size=4 [ RL0         RL2         RL4         RL6    
 # UTP  User Stack Page Register
 # STP  System Stack Page Register
 
-define register offset=0x10 size=2 [ PSW PC  SSP _  _  _  _   _   ];
-define register offset=0x10 size=1 [ _ _ _ _ _ _ CP DP EP UTP STP ];
+define register offset=0x10 size=2 [ PSW PC  SSP USP _  _  _  _   _   ];
+define register offset=0x10 size=1 [ _ _ _ _ _ _ _ _ CP DP EP UTP STP ];
 
 # Ghidra bit range selector index 0 is LSB
 @define IM		"PSW[13,3]"		# Interrupt Mask Register
@@ -149,6 +149,8 @@ define pcodeop trapException;
 
 define pcodeop enableInterrupts;
 define pcodeop disableInterrupts;
+
+define pcodeop loadCtx;
 
 # Macro for changing register bank
 @define NUMREGBANKS 16
@@ -321,6 +323,16 @@ lConToReg: RL2 is data1=2 & RL2 { export RL2; }
 lConToReg: RL4 is data1=4 & RL4 { export RL4; }
 lConToReg: RL6 is data1=6 & RL6 { export RL6; }
 
+cConToReg: UTP is data1=0 & UTP { export UTP; }
+cConToReg: DP  is data1=1 & DP  { export DP ; }
+cConToReg: EP  is data1=2 & EP  { export EP ; }
+cConToReg: STP is data1=3 & STP { export STP; }
+# TODO: These are unconfirmed
+# cConToReg: SSP is data1=4 & SSP { export SSP; }
+# cConToReg: USP is data1=5 & USP { export USP; }
+cConToReg: IM  is data1=6 & IM  { export IM ; }
+cConToReg: BCR is data1=7 & BCR { export BCR; }
+
 extRegVal: wConToReg is (data1=0 | data1=1 | data1=2 | data1=3) & wConToReg { tmp:3 = (zext(DP) << 16) + zext(wConToReg:2); export tmp; }
 extRegVal: wConToReg is (data1=4 | data1=5) & wConToReg { tmp:3 = (zext(EP) << 16) + zext(wConToReg:2); export tmp; }
 extRegVal: wConToReg is (data1=6 | data1=7) & wConToReg { tmp:3 = (zext(UTP) << 16) + zext(wConToReg:2); export tmp; }
@@ -381,6 +393,7 @@ with :phase=3 {
 bArgTbl4: bConToReg is prefix=0x10 & bConToReg { export bConToReg; }
 wArgTbl4: wConToReg is prefix=0x10 & wConToReg { export wConToReg; }
 lArgTbl4: lConToReg is prefix=0x10 & lConToReg { export lConToReg; }
+cArgTbl4: cConToReg is prefix=0x10 & cConToReg { export cConToReg; }
 
 } # end :phase=3
 
@@ -1521,4 +1534,76 @@ with :phase=3 {
 	zeroFlags(wReg5_3);
 }
 
+:SHAL.L lArgTbl4 is (op0_8=0xE0) ... & lArgTbl4 {
+	lArgTbl4 = lArgTbl4 << 1;
+	zeroFlags(lArgTbl4);
+}
+
+:SHAR.L lArgTbl4 is (op0_8=0xE1) ... & lArgTbl4 {
+	lArgTbl4 = lArgTbl4 s>> 1;
+	zeroFlags(lArgTbl4);
+}
+
+:SHLL.L lArgTbl4 is (op0_8=0xE2) ... & lArgTbl4 {
+	lArgTbl4 = lArgTbl4 << 1;
+	zeroFlags(lArgTbl4);
+}
+
+:SHLR.L lArgTbl4 is (op0_8=0xE3) ... & lArgTbl4 {
+	lArgTbl4 = lArgTbl4 >> 1;
+	zeroFlags(lArgTbl4);
+}
+
+:ROTL.L lArgTbl4 is (op0_8=0xE4) ... & lArgTbl4 {
+	lArgTbl4 = (lArgTbl4 << 1) + (lArgTbl4 >> 31);
+	zeroFlags(lArgTbl4);
+}
+
+:ROTR.L lArgTbl4 is (op0_8=0xE5) ... & lArgTbl4 {
+	lArgTbl4 = (lArgTbl4 >> 1) + (lArgTbl4 << 31);
+	zeroFlags(lArgTbl4);
+}
+
+:SHXL.L lArgTbl4 is (op0_8=0xE6) ... & lArgTbl4 {
+	lArgTbl4 = (lArgTbl4 << 1) + zext(X);
+	zeroFlags(lArgTbl4);
+}
+
+:SHXR.L lArgTbl4 is (op0_8=0xE7) ... & lArgTbl4 {
+	lArgTbl4 = (lArgTbl4 >> 1) + zext(X);
+	zeroFlags(lArgTbl4);
+}
+
+:MOV.W wArgTbl4,USP is (op0_8=0xE8 & USP) ... & wArgTbl4 {
+	USP = wArgTbl4;
+}
+
+:MOV.W USP,wArgTbl4 is (op0_8=0xE9 & USP) ... & wArgTbl4 {
+	wArgTbl4 = USP;
+}
+
+:XORC opData5_3,cArgTbl4 is (op0_8=0xEC & opData5_3) ... & cArgTbl4 {
+	cArgTbl4 = opData5_3:1 ^ cArgTbl4;
+}
+
+:LDCTX is (op0_8=0xED) ... & bArgTbl4 {
+	# TODO: unsure what this does
+	loadCtx();
+}
+
+:NEG.L lArgTbl4 is (op0_8=0xEE) ... & lArgTbl4 {
+	lArgTbl4 = ~lArgTbl4;
+	zeroFlags(lArgTbl4);
+}
+
+:MOVC.W wArgTbl4,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & cReg5_3) ... & wArgTbl4 {
+	cReg5_3 = wArgTbl4:1;
+}
+
+:MOVC.W cReg5_3,wArgTbl4 is (op0_4=0xF & opHalf4_1=1 & cReg5_3) ... & wArgTbl4 {
+	wArgTbl4 = zext(cReg5_3);
+}
+
 } # End with :phase=3
+
+####### TABLE 5
