@@ -36,7 +36,7 @@ define register offset=0x10 size=1 [ _ _ _ _ _ _ _ _ CP DP EP UTP STP ];
 @define Z		"PSW[0,1]"		# Zero Flag
 
 # Fake flag registers, synced to actual PSW before PSW based ops
-define register offset=0x20 size=1 [ IM BCR S I M V X Z T ];
+define register offset=0x22 size=1 [ IM BCR S I M V X Z T ];
 
 # SPC970 has individual "banks" for registers, aka a register window
 # BCR register selects currently active bank index. 
@@ -63,7 +63,7 @@ define register offset=0x30 size=2 [
 	W150 W151 W152 W153 W154 W155 W156 W157
 ];
 
-define register offset=0x1000 size=16 contextreg;
+define register offset=0x1000 size=32 contextreg;
 define context contextreg
 	phase		= (0,3)
 	tbl8Mode	= (4,6)
@@ -89,6 +89,7 @@ define token opbyte (8)
 	wReg5_3		= (0,2)
 	lReg5_3		= (0,2)
 	cReg5_3		= (0,2)
+	cwReg5_3	= (0,2)
 ;
 
 define token bdata (8)
@@ -140,10 +141,11 @@ define token adata (24)
 	imm24		= (0,23)
 ;
 
-attach variables [ bReg5_3 ] [ RB0 RB1 RB2 RB3 RB4 RB5 RB6 RB7 ];
-attach variables [ wReg5_3 ] [ RW0 RW1 RW2 RW3 RW4 RW5 FP  SP  ];
-attach variables [ lReg5_3 ] [ RL0 _   RL2 _   RL4 _   RL6 _   ];
-attach variables [ cReg5_3 ] [ UTP DP  EP  STP _   _   IM  BCR ];
+attach variables [ bReg5_3  ] [ RB0 RB1 RB2 RB3 RB4 RB5 RB6 RB7 ];
+attach variables [ wReg5_3  ] [ RW0 RW1 RW2 RW3 RW4 RW5 FP  SP  ];
+attach variables [ lReg5_3  ] [ RL0 _   RL2 _   RL4 _   RL6 _   ];
+attach variables [ cReg5_3  ] [ UTP DP  EP  STP _   _   IM  BCR ];
+attach variables [ cwReg5_3 ] [ _   _   _   _   _   PSW _   _   ];
 
 # Custom pcode ops to reference segments using CP, EP and DP page registers
 define pcodeop segment;
@@ -1518,12 +1520,12 @@ with :phase=2 {
 	cReg5_3 = wArgTbl3:1 & cReg5_3;
 }
 
-:ANDC.B #bArgTbl3,cReg5_3 is (op0_8=0xE5 & cReg5_3) ... & bArgTbl3 {
-	cReg5_3 = bArgTbl3 & cReg5_3;
+:ANDC.B #bArgTbl3,cwReg5_3 is (op0_8=0xE5 & cwReg5_3) ... & bArgTbl3 {
+	cwReg5_3 = zext(bArgTbl3) & cwReg5_3;
 }
 
-:ANDC.W #wArgTbl3,cReg5_3 is (op0_8=0xE5 & cReg5_3) ... & wArgTbl3 {
-	cReg5_3 = wArgTbl3:1 & cReg5_3;
+:ANDC.W #wArgTbl3,cwReg5_3 is (op0_8=0xE5 & cwReg5_3) ... & wArgTbl3 {
+	cwReg5_3 = wArgTbl3 & cwReg5_3;
 }
 
 :MOV.G0.B #bArgTbl3,bAddrAbs16 is (op0_8=0xE8; bAddrAbs16) ... & bArgTbl3 {
@@ -1550,12 +1552,12 @@ with :phase=2 {
 	cReg5_3 = wArgTbl3:1 | cReg5_3;
 }
 
-:ORC.B #bArgTbl3,cReg5_3 is (op0_8=0xED & cReg5_3) ... & bArgTbl3 {
-	cReg5_3 = bArgTbl3 | cReg5_3;
+:ORC.B #bArgTbl3,cwReg5_3 is (op0_8=0xED & cwReg5_3) ... & bArgTbl3 {
+	cwReg5_3 = zext(bArgTbl3) | cwReg5_3;
 }
 
-:ORC.W #wArgTbl3,cReg5_3 is (op0_8=0xED & cReg5_3) ... & wArgTbl3 {
-	cReg5_3 = wArgTbl3:1 | cReg5_3;
+:ORC.W #wArgTbl3,cwReg5_3 is (op0_8=0xED & cwReg5_3) ... & wArgTbl3 {
+	cwReg5_3 = wArgTbl3 | cwReg5_3;
 }
 
 :PUSH.B #bArgTbl3 is (op0_8=0xEF) ... & bArgTbl3 {
@@ -1566,7 +1568,15 @@ with :phase=2 {
 	push16(wArgTbl3);
 }
 
-:MOVC.B #bArgTbl3,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & cReg5_3) ... & bArgTbl3 {
+:MOVC.W #wArgTbl3,cwReg5_3 is (op0_4=0xF & opHalf4_1=0 & opData5_3=5 & cwReg5_3) ... & wArgTbl3 {
+	cwReg5_3 = wArgTbl3;
+}
+
+:MOVC.B #bArgTbl3,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & opData5_3<5 & cReg5_3) ... & bArgTbl3 {
+	cReg5_3 = bArgTbl3;
+}
+
+:MOVC.B #bArgTbl3,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & opData5_3>5 & cReg5_3) ... & bArgTbl3 {
 	cReg5_3 = bArgTbl3;
 }
 
@@ -1766,6 +1776,14 @@ with :phase=3 {
 	zeroFlags(lArgTbl4);
 }
 
+:MOVC.W wArgTbl4,cwReg5_3 is (op0_4=0xF & opHalf4_1=0 & opData5_3=5 & cwReg5_3) ... & wArgTbl4 {
+	cwReg5_3 = wArgTbl4;
+}
+
+:MOVC.W cwReg5_3,wArgTbl4 is (op0_4=0xF & opHalf4_1=1 & opData5_3=5 & cwReg5_3) ... & wArgTbl4 {
+	wArgTbl4 = cwReg5_3;
+}
+
 :MOVC.W wArgTbl4,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & cReg5_3) ... & wArgTbl4 {
 	cReg5_3 = wArgTbl4:1;
 }
@@ -1803,8 +1821,16 @@ with :phase=4 {
 	call regIndirect;
 }
 
+:POPC cwReg5_3 is (op0_4=0xD & opHalf4_1=0 & opData5_3=5 & cwReg5_3) ... {
+	pop16(cwReg5_3);
+}
+
 :POPC cReg5_3 is (op0_4=0xD & opHalf4_1=0 & cReg5_3) ... {
 	pop8(cReg5_3);
+}
+
+:PUSHC cwReg5_3 is (op0_4=0xD & opHalf4_1=1 & opData5_3=5 & cwReg5_3) ... {
+	push16(cwReg5_3);
 }
 
 :PUSHC cReg5_3 is (op0_4=0xD & opHalf4_1=1 & cReg5_3) ... {
