@@ -67,12 +67,17 @@ define register offset=0x1000 size=32 contextreg;
 define context contextreg
 	phase		= (0,3)
 	tbl8Mode	= (4,6)
+	tbl2Width	= (7,7)
 	prefix		= (8,15)
 	data1		= (16,39)
+	sdata1		= (16,39) signed
 	data2		= (40,55)
+	sdata2		= (40,55) signed
 	data3		= (56,79)
+	sdata3		= (56,79) signed
 	prefix2		= (80,95)
 	data4		= (96,111)
+	sdata4		= (96,111) signed
 ;
 
 define token opbyte (8)
@@ -274,33 +279,33 @@ wAddrAbs16: val is imm16 [ val = (DP << 16) + imm16; ] { export *:2 val; }
 bAddrAbs24: immAddr24 is immAddr24 { export *:1 immAddr24; }
 wAddrAbs24: immAddr24 is immAddr24 { export *:2 immAddr24; }
 
-regIndirect: wReg5_3 is (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3) & wReg5_3 { tmp:3 = (zext(DP) << 16) + zext(wReg5_3); export *:1 tmp; }
-regIndirect: wReg5_3 is (opData5_3=4 | opData5_3=5) & wReg5_3 { tmp:3 = (zext(EP) << 16) + zext(wReg5_3:2); export *:1 tmp; }
-regIndirect: wReg5_3 is (opData5_3=6 | opData5_3=7) & wReg5_3 { tmp:3 = (zext(UTP) << 16) + zext(wReg5_3:2); export *:1 tmp; }
+regIndirect: wReg5_3 is (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3) & wReg5_3 { tmp:3 = segment(DP,wReg5_3); export *:1 tmp; }
+regIndirect: wReg5_3 is (opData5_3=4 | opData5_3=5) & wReg5_3 { tmp:3 = segment(EP,wReg5_3); export *:1 tmp; }
+regIndirect: wReg5_3 is (opData5_3=6 | opData5_3=7) & wReg5_3 { tmp:3 = segment(UTP,wReg5_3); export *:1 tmp; }
 
 ####### OP Preludes
 # Preludes are described as instruction prefixes in context register
 # otherwise the combination of prefixes are OR'ed instead of AND'ed
 
 # Table 2 preludes
-:^instruction is phase=0 & op0_4=0x2 & simm4_4										; instruction [ prefix=0x2 ; phase=1; data1=simm4_4; ] {}
-:^instruction is phase=0 & op0_4=0x3 & simm4_4										; instruction [ prefix=0x3 ; phase=1; data1=simm4_4; ] {}
-:^instruction is phase=0 & op0_4=0x8 & opHalf4_1=0x0 & opData5_3 ; imm8				; instruction [ prefix=0x80; phase=1; data1=opData5_3; data2=imm8; ] {}
-:^instruction is phase=0 & op0_4=0x8 & opHalf4_1=0x1 & opData5_3 ; imm8				; instruction [ prefix=0x81; phase=1; data1=opData5_3; data2=imm8; ] {}
-:^instruction is phase=0 & op0_4=0x9 & opHalf4_1=0x0 & opData5_3 & wReg5_3 ; simm16	; instruction [ prefix=0x90; phase=1; data1=opData5_3; data2=simm16; ] {}
-:^instruction is phase=0 & op0_4=0x9 & opHalf4_1=0x1 & opData5_3 & wReg5_3 ; simm16	; instruction [ prefix=0x91; phase=1; data1=opData5_3; data2=simm16; ] {}
-:^instruction is phase=0 & op0_4=0xA & opHalf4_1=0x0 & opData5_3 & wReg5_3 ; simm8	; instruction [ prefix=0xA0; phase=1; data1=opData5_3; data2=simm8; ] {}
-:^instruction is phase=0 & op0_4=0xA & opHalf4_1=0x1 & opData5_3 & wReg5_3 ; simm8	; instruction [ prefix=0xA1; phase=1; data1=opData5_3; data2=simm8; ] {}
-:^instruction is phase=0 & op0_4=0xB & opHalf4_1=0x0 & opData5_3 					; instruction [ prefix=0xB0; phase=1; data1=opData5_3; ] {}
-:^instruction is phase=0 & op0_4=0xB & opHalf4_1=0x1 & opData5_3 					; instruction [ prefix=0xB1; phase=1; data1=opData5_3; ] {}
-:^instruction is phase=0 & op0_4=0xC & opHalf4_1=0x0 & opData5_3 					; instruction [ prefix=0xC0; phase=1; data1=opData5_3; ] {}
-:^instruction is phase=0 & op0_4=0xC & opHalf4_1=0x1 & opData5_3 					; instruction [ prefix=0xC1; phase=1; data1=opData5_3; ] {}
-:^instruction is phase=0 & op0_8=0xE0									   ; simm16	; instruction [ prefix=0xE0; phase=1; data1=simm16; ] {}
-:^instruction is phase=0 & op0_8=0xE1                                      ; imm24	; instruction [ prefix=0xE1; phase=1; data1=imm24; ] {}
-:^instruction is phase=0 & op0_8=0xE7                								; instruction [ prefix=0xE7; phase=1; ] {}
-:^instruction is phase=0 & op0_8=0xE8                					   ; simm16	; instruction [ prefix=0xE8; phase=1; data1=simm16; ] {}
-:^instruction is phase=0 & op0_8=0xE9                					   ; imm24	; instruction [ prefix=0xE9; phase=1; data1=imm24; ] {}
-:^instruction is phase=0 & op0_8=0xEF                								; instruction [ prefix=0xEF; phase=1; ] {}
+:^instruction is phase=0 & op0_4=0x2 & simm4_4										; instruction [ prefix=0x2 ; phase=1; data1=simm4_4; tbl2Width=0; ] {}
+:^instruction is phase=0 & op0_4=0x3 & simm4_4										; instruction [ prefix=0x3 ; phase=1; data1=simm4_4; tbl2Width=1; ] {}
+:^instruction is phase=0 & op0_4=0x8 & opHalf4_1=0x0 & opData5_3 ; imm8				; instruction [ prefix=0x80; phase=1; data1=opData5_3; data2=imm8; tbl2Width=0; ] {}
+:^instruction is phase=0 & op0_4=0x8 & opHalf4_1=0x1 & opData5_3 ; imm8				; instruction [ prefix=0x81; phase=1; data1=opData5_3; data2=imm8; tbl2Width=1; ] {}
+:^instruction is phase=0 & op0_4=0x9 & opHalf4_1=0x0 & opData5_3 & wReg5_3 ; simm16	; instruction [ prefix=0x90; phase=1; data1=opData5_3; data2=simm16; tbl2Width=0; ] {}
+:^instruction is phase=0 & op0_4=0x9 & opHalf4_1=0x1 & opData5_3 & wReg5_3 ; simm16	; instruction [ prefix=0x91; phase=1; data1=opData5_3; data2=simm16; tbl2Width=1; ] {}
+:^instruction is phase=0 & op0_4=0xA & opHalf4_1=0x0 & opData5_3 & wReg5_3 ; simm8	; instruction [ prefix=0xA0; phase=1; data1=opData5_3; data2=simm8; tbl2Width=0; ] {}
+:^instruction is phase=0 & op0_4=0xA & opHalf4_1=0x1 & opData5_3 & wReg5_3 ; simm8	; instruction [ prefix=0xA1; phase=1; data1=opData5_3; data2=simm8; tbl2Width=1; ] {}
+:^instruction is phase=0 & op0_4=0xB & opHalf4_1=0x0 & opData5_3 					; instruction [ prefix=0xB0; phase=1; data1=opData5_3; tbl2Width=0; ] {}
+:^instruction is phase=0 & op0_4=0xB & opHalf4_1=0x1 & opData5_3 					; instruction [ prefix=0xB1; phase=1; data1=opData5_3; tbl2Width=1; ] {}
+:^instruction is phase=0 & op0_4=0xC & opHalf4_1=0x0 & opData5_3 					; instruction [ prefix=0xC0; phase=1; data1=opData5_3; tbl2Width=0; ] {}
+:^instruction is phase=0 & op0_4=0xC & opHalf4_1=0x1 & opData5_3 					; instruction [ prefix=0xC1; phase=1; data1=opData5_3; tbl2Width=1; ] {}
+:^instruction is phase=0 & op0_8=0xE0									   ; simm16	; instruction [ prefix=0xE0; phase=1; data1=simm16; tbl2Width=0; ] {}
+:^instruction is phase=0 & op0_8=0xE1                                      ; imm24	; instruction [ prefix=0xE1; phase=1; data1=imm24; tbl2Width=0; ] {}
+:^instruction is phase=0 & op0_8=0xE7                								; instruction [ prefix=0xE7; phase=1; tbl2Width=0; ] {}
+:^instruction is phase=0 & op0_8=0xE8                					   ; simm16	; instruction [ prefix=0xE8; phase=1; data1=simm16; tbl2Width=1; ] {}
+:^instruction is phase=0 & op0_8=0xE9                					   ; imm24	; instruction [ prefix=0xE9; phase=1; data1=imm24; tbl2Width=1; ] {}
+:^instruction is phase=0 & op0_8=0xEF                								; instruction [ prefix=0xEF; phase=1; tbl2Width=1; ] {}
 
 # Table 3 preludes
 :^instruction is phase=0 & op0_4=0xD & opHalf4_1=0x0 & opData5_3					; instruction [ prefix=0xD0; phase=2; data1=opData5_3; ] {}
@@ -411,47 +416,51 @@ cConToReg: STP is data1=3 & STP { export STP; }
 cConToReg: IM  is data1=6 & IM  { export IM ; }
 cConToReg: BCR is data1=7 & BCR { export BCR; }
 
-extRegVal: wConToReg is (data1=0 | data1=1 | data1=2 | data1=3) & wConToReg { tmp:3 = (zext(DP) << 16) + zext(wConToReg:2); export tmp; }
-extRegVal: wConToReg is (data1=4 | data1=5) & wConToReg { tmp:3 = (zext(EP) << 16) + zext(wConToReg:2); export tmp; }
-extRegVal: wConToReg is (data1=6 | data1=7) & wConToReg { tmp:3 = (zext(UTP) << 16) + zext(wConToReg:2); export tmp; }
+extRegVal: wConToReg is (data1=0 | data1=1 | data1=2 | data1=3) & wConToReg { tmp:3 = segment(DP,wConToReg); export tmp; }
+extRegVal: wConToReg is (data1=4 | data1=5) & wConToReg { tmp:3 = segment(EP,wConToReg); export tmp; }
+extRegVal: wConToReg is (data1=6 | data1=7) & wConToReg { tmp:3 = segment(UTP,wConToReg); export tmp; }
 
-predExtRegVal: wConToReg is (data1=0 | data1=1 | data1=2 | data1=3) & wConToReg { wConToReg = wConToReg - 1; tmp:3 = (zext(DP) << 16) + zext(wConToReg:2); export tmp; }
-predExtRegVal: wConToReg is (data1=4 | data1=5) & wConToReg { wConToReg = wConToReg - 1; tmp:3 = (zext(EP) << 16) + zext(wConToReg:2); export tmp; }
-predExtRegVal: wConToReg is (data1=6 | data1=7) & wConToReg { wConToReg = wConToReg - 1; tmp:3 = (zext(UTP) << 16) + zext(wConToReg:2); export tmp; }
+indRegVal: wReg5_3 is (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3) & wReg5_3 { tmp:3 = segment(DP,wReg5_3); export tmp; }
+indRegVal: wReg5_3 is (opData5_3=4 | opData5_3=5) & wReg5_3 { tmp:3 = segment(EP,wReg5_3); export tmp; }
+indRegVal: wReg5_3 is (opData5_3=6 | opData5_3=7) & wReg5_3 { tmp:3 = segment(UTP,wReg5_3); export tmp; }
 
-pstiExtRegVal: wConToReg is (data1=0 | data1=1 | data1=2 | data1=3) & wConToReg { tmp:3 = (zext(DP) << 16) + zext(wConToReg:2); wConToReg = wConToReg + 1; export tmp; }
-pstiExtRegVal: wConToReg is (data1=4 | data1=5) & wConToReg { tmp:3 = (zext(EP) << 16) + zext(wConToReg:2); wConToReg = wConToReg + 1; export tmp; }
-pstiExtRegVal: wConToReg is (data1=6 | data1=7) & wConToReg { tmp:3 = (zext(UTP) << 16) + zext(wConToReg:2); wConToReg = wConToReg + 1; export tmp; }
+predExtRegVal: wConToReg is (data1=0 | data1=1 | data1=2 | data1=3) & wConToReg { wConToReg = wConToReg - 1; tmp:3 = segment(DP,wConToReg); export tmp; }
+predExtRegVal: wConToReg is (data1=4 | data1=5) & wConToReg { wConToReg = wConToReg - 1; tmp:3 = segment(EP,wConToReg); export tmp; }
+predExtRegVal: wConToReg is (data1=6 | data1=7) & wConToReg { wConToReg = wConToReg - 1; tmp:3 = segment(UTP,wConToReg); export tmp; }
 
-extRegVal3: wCon3ToReg is (data3=0 | data3=1 | data3=2 | data3=3) & wCon3ToReg { tmp:3 = (zext(DP) << 16) + zext(wCon3ToReg:2); export tmp; }
-extRegVal3: wCon3ToReg is (data3=4 | data3=5) & wCon3ToReg { tmp:3 = (zext(EP) << 16) + zext(wCon3ToReg:2); export tmp; }
-extRegVal3: wCon3ToReg is (data3=6 | data3=7) & wCon3ToReg { tmp:3 = (zext(UTP) << 16) + zext(wCon3ToReg:2); export tmp; }
+pstiExtRegVal: wConToReg is (data1=0 | data1=1 | data1=2 | data1=3) & wConToReg { tmp:3 = segment(DP,wConToReg); wConToReg = wConToReg + 1; export tmp; }
+pstiExtRegVal: wConToReg is (data1=4 | data1=5) & wConToReg { tmp:3 = segment(EP,wConToReg); wConToReg = wConToReg + 1; export tmp; }
+pstiExtRegVal: wConToReg is (data1=6 | data1=7) & wConToReg { tmp:3 = segment(UTP,wConToReg); wConToReg = wConToReg + 1; export tmp; }
 
-predExtRegVal3: wCon3ToReg is (data3=0 | data3=1 | data3=2 | data3=3) & wCon3ToReg { wCon3ToReg = wCon3ToReg - 1; tmp:3 = (zext(DP) << 16) + zext(wCon3ToReg:2); export tmp; }
-predExtRegVal3: wCon3ToReg is (data3=4 | data3=5) & wCon3ToReg { wCon3ToReg = wCon3ToReg - 1; tmp:3 = (zext(EP) << 16) + zext(wCon3ToReg:2); export tmp; }
-predExtRegVal3: wCon3ToReg is (data3=6 | data3=7) & wCon3ToReg { wCon3ToReg = wCon3ToReg - 1; tmp:3 = (zext(UTP) << 16) + zext(wCon3ToReg:2); export tmp; }
+extRegVal3: wCon3ToReg is (data3=0 | data3=1 | data3=2 | data3=3) & wCon3ToReg { tmp:3 = segment(DP,wCon3ToReg); export tmp; }
+extRegVal3: wCon3ToReg is (data3=4 | data3=5) & wCon3ToReg { tmp:3 = segment(EP,wCon3ToReg); export tmp; }
+extRegVal3: wCon3ToReg is (data3=6 | data3=7) & wCon3ToReg { tmp:3 = segment(UTP,wCon3ToReg); export tmp; }
 
-pstiExtRegVal3: wCon3ToReg is (data3=0 | data3=1 | data3=2 | data3=3) & wCon3ToReg { tmp:3 = (zext(DP) << 16) + zext(wCon3ToReg:2); wCon3ToReg = wCon3ToReg + 1; export tmp; }
-pstiExtRegVal3: wCon3ToReg is (data3=4 | data3=5) & wCon3ToReg { tmp:3 = (zext(EP) << 16) + zext(wCon3ToReg:2); wCon3ToReg = wCon3ToReg + 1; export tmp; }
-pstiExtRegVal3: wCon3ToReg is (data3=6 | data3=7) & wCon3ToReg { tmp:3 = (zext(UTP) << 16) + zext(wCon3ToReg:2); wCon3ToReg = wCon3ToReg + 1; export tmp; }
+predExtRegVal3: wCon3ToReg is (data3=0 | data3=1 | data3=2 | data3=3) & wCon3ToReg { wCon3ToReg = wCon3ToReg - 1; tmp:3 = segment(DP,wCon3ToReg); export tmp; }
+predExtRegVal3: wCon3ToReg is (data3=4 | data3=5) & wCon3ToReg { wCon3ToReg = wCon3ToReg - 1; tmp:3 = segment(EP,wCon3ToReg); export tmp; }
+predExtRegVal3: wCon3ToReg is (data3=6 | data3=7) & wCon3ToReg { wCon3ToReg = wCon3ToReg - 1; tmp:3 = segment(UTP,wCon3ToReg); export tmp; }
+
+pstiExtRegVal3: wCon3ToReg is (data3=0 | data3=1 | data3=2 | data3=3) & wCon3ToReg { tmp:3 = segment(DP,wCon3ToReg); wCon3ToReg = wCon3ToReg + 1; export tmp; }
+pstiExtRegVal3: wCon3ToReg is (data3=4 | data3=5) & wCon3ToReg { tmp:3 = segment(EP,wCon3ToReg); wCon3ToReg = wCon3ToReg + 1; export tmp; }
+pstiExtRegVal3: wCon3ToReg is (data3=6 | data3=7) & wCon3ToReg { tmp:3 = segment(UTP,wCon3ToReg); wCon3ToReg = wCon3ToReg + 1; export tmp; }
 
 with :(phase=1|phase=5|phase=6) {
 
 # bFpOffset
-bArgTbl2: @(data1,FP) is prefix=0x2 & data1 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(data1:1); export *:1 ptr; }
-wArgTbl2: @(data1,FP) is prefix=0x3 & data1 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(data1:1); export *:2 ptr; }
+bArgTbl2: @(sdata1,FP) is prefix=0x2 & sdata1 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(sdata1:1); export *:1 ptr; }
+wArgTbl2: @(sdata1,FP) is prefix=0x3 & sdata1 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(sdata1:1); export *:2 ptr; }
 
 # bImmAddr11
 bArgTbl2: val is prefix=0x80 & data1 & data2 [ val = (data1 << 8) + data2; ] { tmp:3 = zext(val:2); export *:1 tmp; }
 wArgTbl2: val is prefix=0x81 & data1 & data2 [ val = (data1 << 8) + data2; ] { tmp:3 = zext(val:2); export *:2 tmp; }
 
 # bRW2Offset
-bArgTbl2: @(data2,extRegVal) is prefix=0x90 & extRegVal & data2 { ptr:3 = extRegVal + sext(data2:2); export *:1 ptr; }
-wArgTbl2: @(data2,extRegVal) is prefix=0x91 & extRegVal & data2 { ptr:3 = extRegVal + sext(data2:2); export *:2 ptr; }
+bArgTbl2: @(sdata2,extRegVal) is prefix=0x90 & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:2); export *:1 ptr; }
+wArgTbl2: @(sdata2,extRegVal) is prefix=0x91 & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:2); export *:2 ptr; }
 
 # bRWOffset
-bArgTbl2: @(data2,extRegVal) is prefix=0xA0 & extRegVal & data2 { ptr:3 = extRegVal + sext(data2:1); export *:1 ptr; }
-wArgTbl2: @(data2,extRegVal) is prefix=0xA1 & extRegVal & data2 { ptr:3 = extRegVal + sext(data2:1); export *:2 ptr; }
+bArgTbl2: @(sdata2,extRegVal) is prefix=0xA0 & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:1); export *:1 ptr; }
+wArgTbl2: @(sdata2,extRegVal) is prefix=0xA1 & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:1); export *:2 ptr; }
 
 # bRWAddr
 bArgTbl2: @(extRegVal) is prefix=0xB0 & extRegVal { export *:1 extRegVal; }
@@ -462,12 +471,12 @@ bArgTbl2: bConToReg is prefix=0xC0 & bConToReg { export bConToReg; }
 wArgTbl2: wConToReg is prefix=0xC1 & wConToReg { export wConToReg; }
 
 # bAddrAbs16
-bArgTbl2: val is prefix=0xE0 & data1 [ val = (DP << 16) + data1; ] { export *:1 val; }
+bArgTbl2: val is prefix=0xE0 & data1 [ val = (DP << 16) + data1; ] { tmp:3 = segment(DP,data1:2); export *:1 tmp; }
 # bAddrAbs24
 bArgTbl2: data1 is prefix=0xE1 & data1 { export *:1 data1; }
 
 bArgTbl2: @(SP+) is prefix=0xE7 & SP { ptr:3 = segment(UTP,SP); SP = SP + 2; export *:1 ptr; }
-wArgTbl2: val is prefix=0xE8 & data1 [ val = (DP << 16) + data1; ] { export *:2 val; }
+wArgTbl2: val is prefix=0xE8 & data1 [ val = (DP << 16) + data1; ] { ptr:3 = segment(DP,data1:2); export *:2 ptr; }
 wArgTbl2: data1 is prefix=0xE9 & data1 { export *:2 data1; }
 
 wArgTbl2: @(SP+) is prefix=0xEF & SP { ptr:3 = segment(UTP,SP); SP = SP + 2; export *:2 ptr; }
@@ -501,7 +510,7 @@ cArgTbl4: cConToReg is prefix=0x10 & cConToReg { export cConToReg; }
 
 with :(phase=4|phase=5) {
 
-tbl5RelAddr: loc is simm8 [ loc = inst_next + simm8; ] { export *:1 loc; }
+tbl5RelAddr: loc is simm16 [ loc = inst_next + simm16; ] { export *:1 loc; }
 
 } # end :(phase=4|phase=5)
 
@@ -524,32 +533,32 @@ lArgTbl8: #val is prefix=0xE2 & data1 & tbl8Mode=1 & data2 [ val = data1 + (data
 with :phase=5 {
 
 wArgTbl62: #val is prefix2=0x0280 [ val = (data3 << 8) + data4; ] { tmp:2 = val; export tmp; }
-wArgTbl62: @(data4,extRegVal3) is prefix2=0x0290 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:2); export *:2 ptr; }
-wArgTbl62: @(data4,extRegVal3) is prefix2=0x02A0 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:1); export *:2 ptr; }
+wArgTbl62: @(sdata4,extRegVal3) is prefix2=0x0290 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:2); export *:2 ptr; }
+wArgTbl62: @(sdata4,extRegVal3) is prefix2=0x02A0 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:1); export *:2 ptr; }
 wArgTbl62: @(extRegVal3) is prefix2=0x02B0 & extRegVal3 { export *:2 extRegVal3; }
 wArgTbl62: wCon3ToReg is prefix2=0x02C0 & wCon3ToReg { export wCon3ToReg; }
 wArgTbl62: data3 is prefix2=0x02E0 & data3 { ptr:3 = zext(data3:2); export *:2 ptr; }
 wArgTbl62: data3 is prefix2=0x02E1 & data3 { export *:2 data3; }
 
 bArgTbl62: #data4 is prefix2=0x0280 & data4 { tmp:1 = data4:1; export tmp; }
-bArgTbl62: @(data4,extRegVal3) is prefix2=0x0290 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:2); export *:1 ptr; }
-bArgTbl62: @(data4,extRegVal3) is prefix2=0x02A0 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:1); export *:1 ptr; }
+bArgTbl62: @(sdata4,extRegVal3) is prefix2=0x0290 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:2); export *:1 ptr; }
+bArgTbl62: @(sdata4,extRegVal3) is prefix2=0x02A0 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:1); export *:1 ptr; }
 bArgTbl62: @(extRegVal3) is prefix2=0x02B0 & extRegVal3 { export *:1 extRegVal3; }
 bArgTbl62: bCon3ToReg is prefix2=0x02C0 & bCon3ToReg { export bCon3ToReg; }
 bArgTbl62: data3 is prefix2=0x02E0 & data3 { ptr:3 = zext(data3:2); export *:1 ptr; }
 bArgTbl62: data3 is prefix2=0x02E1 & data3 { export *:1 data3; }
 
 wArgTbl63: #val is prefix2=0x0380 [ val = (data3 << 8) + data4; ] { tmp:2 = val; export tmp; }
-wArgTbl63: @(data4,extRegVal3) is prefix2=0x0390 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:2); export *:2 ptr; }
-wArgTbl63: @(data4,extRegVal3) is prefix2=0x03A0 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:1); export *:2 ptr; }
+wArgTbl63: @(sdata4,extRegVal3) is prefix2=0x0390 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:2); export *:2 ptr; }
+wArgTbl63: @(sdata4,extRegVal3) is prefix2=0x03A0 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:1); export *:2 ptr; }
 wArgTbl63: @(extRegVal3) is prefix2=0x03B0 & extRegVal3 { export *:2 extRegVal3; }
 wArgTbl63: wCon3ToReg is prefix2=0x03C0 & wCon3ToReg { export wCon3ToReg; }
 wArgTbl63: data3 is prefix2=0x03E0 & data3 { ptr:3 = zext(data3:2); export *:2 ptr; }
 wArgTbl63: data3 is prefix2=0x03E1 & data3 { export *:2 data3; }
 
 bArgTbl63: #data4 is prefix2=0x0380 & data4 { tmp:1 = data4:1; export tmp; }
-bArgTbl63: @(data4,extRegVal3) is prefix2=0x0390 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:2); export *:1 ptr; }
-bArgTbl63: @(data4,extRegVal3) is prefix2=0x03A0 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:1); export *:1 ptr; }
+bArgTbl63: @(sdata4,extRegVal3) is prefix2=0x0390 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:2); export *:1 ptr; }
+bArgTbl63: @(sdata4,extRegVal3) is prefix2=0x03A0 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:1); export *:1 ptr; }
 bArgTbl63: @(extRegVal3) is prefix2=0x03B0 & extRegVal3 { export *:1 extRegVal3; }
 bArgTbl63: bCon3ToReg is prefix2=0x03C0 & bCon3ToReg { export bCon3ToReg; }
 bArgTbl63: data3 is prefix2=0x03E0 & data3 { ptr:3 = zext(data3:2); export *:1 ptr; }
@@ -708,7 +717,7 @@ with :phase=0 {
 }
 
 :JSR cpAddr16 is op0_8=0xE4; cpAddr16 {
-	push16(&:2 inst_next);
+	#push16(&:2 inst_next);
 	call cpAddr16;
 }
 
@@ -723,15 +732,15 @@ with :phase=0 {
 }
 
 :PJSR immAddr24 is op0_8=0xEC; immAddr24 {
-	push16(&:2 inst_next);
-	push16(CP);
-	CP = (immAddr24 & 0xFF0000) >> 16;
+	#push16(&:2 inst_next);
+	#push16(CP);
+	#CP = (immAddr24 & 0xFF0000) >> 16;
 	call immAddr24;
 }
 
 :PJMP immAddr24 is op0_8=0xED; immAddr24 {
-	CP = (immAddr24 & 0xFF0000) >> 16;
-	call immAddr24;
+	#CP = (immAddr24 & 0xFF0000) >> 16;
+	goto immAddr24;
 }
 
 :LINK FP,immVal16 is op0_8=0xEE & FP; immVal16 {
@@ -759,8 +768,8 @@ with :phase=0 {
 
 :REIT is op0_8=0xF5 {
 	# Is PSW restored from stack?
-	pop16(CP);
-	pop16(PC);
+	#pop16(CP);
+	#pop16(PC);
 	
 	local hi:3 = zext(CP);
 	ptr:3 = (hi << 16) + zext(PC);
@@ -815,63 +824,63 @@ with :phase=0 {
 
 with :phase=1 {
 
-:XOR.GR.B bArgTbl2,bReg5_3 is (op0_4=0x0 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 {
+:XOR.GR.B bArgTbl2,bReg5_3 is (op0_4=0x0 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	bReg5_3 = bReg5_3 ^ bArgTbl2;
 	zeroFlags(bReg5_3);
 }
 
-:XOR.GR.W wArgTbl2,wReg5_3 is (op0_4=0x0 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 {
+:XOR.GR.W wArgTbl2,wReg5_3 is (op0_4=0x0 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	wReg5_3 = wReg5_3 ^ wArgTbl2;
 	zeroFlags(wReg5_3);
 }
 
-:BXOR bArgTbl2"."bIdx3 is (op0_4=0x0 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BXOR bArgTbl2"."bIdx3 is (op0_4=0x0 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	Z = (bArgTbl2 & tmp) == 0;
 	bArgTbl2 = bArgTbl2 ^ tmp;
 }
 
 # Not sure why you'd do this?
-:BXOR.W wArgTbl2"."bIdx3 is (op0_4=0x0 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BXOR.W wArgTbl2"."bIdx3 is (op0_4=0x0 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	Z = (wArgTbl2 & tmp) == 0;
 	wArgTbl2 = wArgTbl2 ^ tmp;
 }
 
-:OR.GR.B bArgTbl2,bReg5_3 is (op0_4=0x1 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 {
+:OR.GR.B bArgTbl2,bReg5_3 is (op0_4=0x1 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	bReg5_3 = bReg5_3 | bArgTbl2;
 	zeroFlags(bReg5_3);
 }
 
-:OR.GR.W wArgTbl2,wReg5_3 is (op0_4=0x1 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 {
+:OR.GR.W wArgTbl2,wReg5_3 is (op0_4=0x1 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	wReg5_3 = wReg5_3 | wArgTbl2;
 	zeroFlags(wReg5_3);
 }
 
-:BOR bArgTbl2"."bIdx3 is (op0_4=0x1 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BOR bArgTbl2"."bIdx3 is (op0_4=0x1 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	Z = (bArgTbl2 & tmp) == 0;
 	bArgTbl2 = bArgTbl2 | tmp;
 }
 
 # Not sure why you'd do this?
-:BOR.W wArgTbl2"."bIdx3 is (op0_4=0x1 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BOR.W wArgTbl2"."bIdx3 is (op0_4=0x1 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	Z = (wArgTbl2 & tmp) == 0;
 	wArgTbl2 = wArgTbl2 | tmp;
 }
 
-:AND.GR.B bArgTbl2,bReg5_3 is (op0_4=0x2 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 {
+:AND.GR.B bArgTbl2,bReg5_3 is (op0_4=0x2 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	bReg5_3 = bReg5_3 | bArgTbl2;
 	zeroFlags(bReg5_3);
 }
 
-:AND.GR.W wArgTbl2,wReg5_3 is (op0_4=0x2 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 {
+:AND.GR.W wArgTbl2,wReg5_3 is (op0_4=0x2 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	wReg5_3 = wReg5_3 | wArgTbl2;
 	zeroFlags(wReg5_3);
 }
 
-:BAND bArgTbl2"."bIdx3 is (op0_4=0x2 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BAND bArgTbl2"."bIdx3 is (op0_4=0x2 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	Z = (bArgTbl2 & tmp) == 0;
 	orig:1 = bArgTbl2;
@@ -880,7 +889,7 @@ with :phase=1 {
 }
 
 # Not sure why you'd do this?
-:BAND.W wArgTbl2"."bIdx3 is (op0_4=0x2 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BAND.W wArgTbl2"."bIdx3 is (op0_4=0x2 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	Z = (wArgTbl2 & tmp) == 0;
 	orig:2 = wArgTbl2;
@@ -888,69 +897,69 @@ with :phase=1 {
 	wArgTbl2 = wArgTbl2 | orig;
 }
 
-:SUBX.GR.B bArgTbl2,bReg5_3 is (op0_4=0x3 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 {
+:SUBX.GR.B bArgTbl2,bReg5_3 is (op0_4=0x3 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	subFlags(bReg5_3,bArgTbl2);
 	bReg5_3 = bReg5_3 - bArgTbl2 - X;
 	zeroFlags(bReg5_3);
 }
 
-:SUBX.GR.W wArgTbl2,wReg5_3 is (op0_4=0x3 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 {
+:SUBX.GR.W wArgTbl2,wReg5_3 is (op0_4=0x3 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	subFlags(wReg5_3,wArgTbl2);
 	wReg5_3 = wReg5_3 - wArgTbl2 - zext(X);
 	zeroFlags(wReg5_3);
 }
 
-:BNOT bArgTbl2"."bIdx3 is (op0_4=0x3 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BNOT bArgTbl2"."bIdx3 is (op0_4=0x3 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	Z = (bArgTbl2 & tmp) == 0;
 	bArgTbl2 = bArgTbl2 ^ tmp;
 }
 
 # Not sure why you'd do this?
-:BNOT.W wArgTbl2"."bIdx3 is (op0_4=0x3 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BNOT.W wArgTbl2"."bIdx3 is (op0_4=0x3 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	Z = (wArgTbl2 & tmp) == 0;
 	wArgTbl2 = wArgTbl2 ^ tmp;
 }
 
-:ADDX.GR.B bArgTbl2,bReg5_3 is (op0_4=0x4 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 {
+:ADDX.GR.B bArgTbl2,bReg5_3 is (op0_4=0x4 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	addFlags(bReg5_3,bArgTbl2);
 	bReg5_3 = bReg5_3 + bArgTbl2 + X;
 	zeroFlags(bReg5_3);
 }
 
-:ADDX.GR.W wArgTbl2,wReg5_3 is (op0_4=0x4 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 {
+:ADDX.GR.W wArgTbl2,wReg5_3 is (op0_4=0x4 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	addFlags(wReg5_3,wArgTbl2);
 	wReg5_3 = wReg5_3 + wArgTbl2 + zext(X);
 	zeroFlags(wReg5_3);
 }
 
-:BSET bArgTbl2"."bIdx3 is (op0_4=0x4 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BSET bArgTbl2"."bIdx3 is (op0_4=0x4 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	Z = (bArgTbl2 & tmp) == 0;
 	bArgTbl2 = bArgTbl2 | tmp;
 }
 
 # Not sure why you'd do this?
-:BSET.W wArgTbl2"."bIdx3 is (op0_4=0x4 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BSET.W wArgTbl2"."bIdx3 is (op0_4=0x4 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	Z = (wArgTbl2 & tmp) == 0;
 	wArgTbl2 = wArgTbl2 | tmp;
 }
 
-:SUB.GR.B bArgTbl2,bReg5_3 is (op0_4=0x5 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 {
+:SUB.GR.B bArgTbl2,bReg5_3 is (op0_4=0x5 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	subFlags(bReg5_3,bArgTbl2);
 	bReg5_3 = bReg5_3 - bArgTbl2;
 	zeroFlags(bReg5_3);
 }
 
-:SUB.GR.W wArgTbl2,wReg5_3 is (op0_4=0x5 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 {
+:SUB.GR.W wArgTbl2,wReg5_3 is (op0_4=0x5 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	subFlags(wReg5_3,wArgTbl2);
 	wReg5_3 = wReg5_3 - wArgTbl2;
 	zeroFlags(wReg5_3);
 }
 
-:BCLR bArgTbl2"."bIdx3 is (op0_4=0x5 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BCLR bArgTbl2"."bIdx3 is (op0_4=0x5 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	Z = (bArgTbl2 & tmp) == 0;
 	tmp = ~tmp;
@@ -958,305 +967,305 @@ with :phase=1 {
 }
 
 # Not sure why you'd do this?
-:BCLR.W wArgTbl2"."bIdx3 is (op0_4=0x5 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BCLR.W wArgTbl2"."bIdx3 is (op0_4=0x5 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	Z = (wArgTbl2 & tmp) == 0;
 	tmp = ~tmp;
 	wArgTbl2 = wArgTbl2 & tmp;
 }
 
-:ADD.GR.B bArgTbl2,bReg5_3 is (op0_4=0x6 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 {
+:ADD.GR.B bArgTbl2,bReg5_3 is (op0_4=0x6 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	addFlags(bReg5_3,bArgTbl2);
 	bReg5_3 = bReg5_3 + bArgTbl2;
 	zeroFlags(bReg5_3);
 }
 
-:ADD.GR.W wArgTbl2,wReg5_3 is (op0_4=0x6 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 {
+:ADD.GR.W wArgTbl2,wReg5_3 is (op0_4=0x6 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	addFlags(wReg5_3,wArgTbl2);
 	wReg5_3 = wReg5_3 + wArgTbl2;
 	zeroFlags(wReg5_3);
 }
 
-:BLD bArgTbl2"."bIdx3 is (op0_4=0x6 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BLD bArgTbl2"."bIdx3 is (op0_4=0x6 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = T << bIdx3;
 	Z = (bArgTbl2 & tmp) == 0;
 	bArgTbl2 = bArgTbl2 | tmp;
 }
 
 # Not sure why you'd do this?
-:BLD.W wArgTbl2"."bIdx3 is (op0_4=0x6 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BLD.W wArgTbl2"."bIdx3 is (op0_4=0x6 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = zext(T) << bIdx3;
 	Z = (wArgTbl2 & tmp) == 0;
 	wArgTbl2 = wArgTbl2 | tmp;
 }
 
-:CMP.GR.B bArgTbl2,bReg5_3 is (op0_4=0x7 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 {
+:CMP.GR.B bArgTbl2,bReg5_3 is (op0_4=0x7 & opHalf4_1=0 & bReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	subFlags(bReg5_3,bArgTbl2);
 	cmp:1 = bReg5_3 - bArgTbl2;
 	zeroFlags(cmp);
 }
 
-:CMP.GR.W wArgTbl2,wReg5_3 is (op0_4=0x7 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 {
+:CMP.GR.W wArgTbl2,wReg5_3 is (op0_4=0x7 & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	subFlags(wReg5_3,wArgTbl2);
 	cmp:2 = wReg5_3 - wArgTbl2;
 	zeroFlags(cmp);
 }
 
-:BST bArgTbl2"."bIdx3 is (op0_4=0x7 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BST bArgTbl2"."bIdx3 is (op0_4=0x7 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	Z = (bArgTbl2 & tmp) == 0;
 	T = bArgTbl2 & tmp;
 }
 
 # Not sure why you'd do this?
-:BST.W wArgTbl2"."bIdx3 is (op0_4=0x7 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BST.W wArgTbl2"."bIdx3 is (op0_4=0x7 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	Z = (wArgTbl2 & tmp) == 0;
 	T = (wArgTbl2 & tmp) == 1;
 }
 
-:MOV.G0.B bArgTbl2,val is (op0_4=0x8 & opHalf4_1=1 & opData5_3; imm8) ... & bArgTbl2 [ val = (opData5_3 << 8) + imm8; ] {
+:MOV.G0.B bArgTbl2,val is (op0_4=0x8 & opHalf4_1=1 & opData5_3; imm8) ... & bArgTbl2 & tbl2Width=0 [ val = (opData5_3 << 8) + imm8; ] {
 	val = bArgTbl2;
 }
 
-:MOV.G0.W wArgTbl2,val is (op0_4=0x8 & opHalf4_1=1 & opData5_3; imm8) ... & wArgTbl2 [ val = (opData5_3 << 8) + imm8; ] {
+:MOV.G0.W wArgTbl2,val is (op0_4=0x8 & opHalf4_1=1 & opData5_3; imm8) ... & wArgTbl2 & tbl2Width=1 [ val = (opData5_3 << 8) + imm8; ] {
 	val = wArgTbl2;
 }
 
-:MOV.G0.B bArgTbl2,@(simm16,extRegVal) is (op0_4=0x9 & opHalf4_1=1 & extRegVal; simm16) ... & bArgTbl2 {
-	ptr:3 = extRegVal + sext(simm16:2);
+:MOV.G0.B bArgTbl2,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & indRegVal; simm16) ... & bArgTbl2 & tbl2Width=0 {
+	ptr:3 = indRegVal + sext(simm16:2);
 	*:1 ptr = bArgTbl2;
 }
 
-:MOV.G0.W wArgTbl2,@(simm16,extRegVal) is (op0_4=0x9 & opHalf4_1=1 & extRegVal; simm16) ... & wArgTbl2 {
-	ptr:3 = extRegVal + sext(simm16:2);
+:MOV.G0.W wArgTbl2,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & indRegVal; simm16) ... & wArgTbl2 & tbl2Width=1 {
+	ptr:3 = indRegVal + sext(simm16:2);
 	*:2 ptr = wArgTbl2;
 }
 
-:MOV.G0.B bArgTbl2,@(simm8,extRegVal) is (op0_4=0xA & opHalf4_1=1 & extRegVal; simm8) ... & bArgTbl2 {
-	ptr:3 = extRegVal + sext(simm8:1);
+:MOV.G0.B bArgTbl2,@(simm8,indRegVal) is (op0_4=0xA & opHalf4_1=1 & indRegVal; simm8) ... & bArgTbl2 & tbl2Width=0 {
+	ptr:3 = indRegVal + sext(simm8:1);
 	*:1 ptr = bArgTbl2;
 }
 
-:MOV.G0.W wArgTbl2,@(simm8,extRegVal) is (op0_4=0xA & opHalf4_1=1 & extRegVal; simm8) ... & wArgTbl2 {
-	ptr:3 = extRegVal + sext(simm8:1);
+:MOV.G0.W wArgTbl2,@(simm8,indRegVal) is (op0_4=0xA & opHalf4_1=1 & indRegVal; simm8) ... & wArgTbl2 & tbl2Width=1 {
+	ptr:3 = zext(indRegVal) + sext(simm8:1);
 	*:2 ptr = wArgTbl2;
 }
 
-:MOV.G0.B bArgTbl2,@(extRegVal) is (op0_4=0xB & opHalf4_1=1 & extRegVal) ... & bArgTbl2 {
-	*:1 extRegVal = bArgTbl2;
+:MOV.G0.B bArgTbl2,@(indRegVal) is (op0_4=0xB & opHalf4_1=1 & indRegVal) ... & bArgTbl2 & tbl2Width=0 {
+	*:1 indRegVal = bArgTbl2;
 }
 
-:MOV.G0.W wArgTbl2,@(extRegVal) is (op0_4=0xB & opHalf4_1=1 & extRegVal) ... & wArgTbl2 {
-	*:2 extRegVal = wArgTbl2;
+:MOV.G0.W wArgTbl2,@(indRegVal) is (op0_4=0xB & opHalf4_1=1 & indRegVal) ... & wArgTbl2 & tbl2Width=1 {
+	*:2 indRegVal = wArgTbl2;
 }
 
-:MOV.G0.B bArgTbl2,bReg5_3 is (op0_4=0xC & opHalf4_1=1 & bReg5_3) ... & bArgTbl2 {
+:MOV.G0.B bArgTbl2,bReg5_3 is (op0_4=0xC & opHalf4_1=1 & bReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	bReg5_3 = bArgTbl2;
 }
 
-:MOV.G0.W wArgTbl2,wReg5_3 is (op0_4=0xC & opHalf4_1=1 & wReg5_3) ... & wArgTbl2 {
+:MOV.G0.W wArgTbl2,wReg5_3 is (op0_4=0xC & opHalf4_1=1 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	wReg5_3 = wArgTbl2;
 }
 
-:BBC bArgTbl2"."bIdx3 relAddr8 is (op0_4=0xD & opHalf4_1=0 & bIdx3; relAddr8) ... & bArgTbl2 {
+:BBC bArgTbl2"."bIdx3 relAddr8 is (op0_4=0xD & opHalf4_1=0 & bIdx3; relAddr8) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	res = (tmp & bArgTbl2) == 0;
 	if (res) goto relAddr8;
 }
 
-:BBC.W wArgTbl2"."bIdx3 relAddr8 is (op0_4=0xD & opHalf4_1=0 & bIdx3; relAddr8) ... & wArgTbl2 {
+:BBC.W wArgTbl2"."bIdx3 relAddr8 is (op0_4=0xD & opHalf4_1=0 & bIdx3; relAddr8) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	res = (tmp & wArgTbl2) == 0;
 	if (res) goto relAddr8;
 }
 
-:BBS bArgTbl2"."bIdx3 relAddr8 is (op0_4=0xD & opHalf4_1=1 & bIdx3; relAddr8) ... & bArgTbl2 {
+:BBS bArgTbl2"."bIdx3 relAddr8 is (op0_4=0xD & opHalf4_1=1 & bIdx3; relAddr8) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	res = (tmp & bArgTbl2) == 1;
 	if (res) goto relAddr8;
 }
 
-:BBS.W wArgTbl2"."bIdx3 relAddr8 is (op0_4=0xD & opHalf4_1=1 & bIdx3; relAddr8) ... & wArgTbl2 {
+:BBS.W wArgTbl2"."bIdx3 relAddr8 is (op0_4=0xD & opHalf4_1=1 & bIdx3; relAddr8) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	res = (tmp & wArgTbl2) == 1;
 	if (res) goto relAddr8;
 }
 
-:NOT.B bArgTbl2 is (op0_8=0xE4) ... & bArgTbl2 {
+:NOT.B bArgTbl2 is (op0_8=0xE4) ... & bArgTbl2 & tbl2Width=0 {
 	bArgTbl2 = ~bArgTbl2;
 	zeroFlags(bArgTbl2);
 }
 
-:NOT.W wArgTbl2 is (op0_8=0xE4) ... & wArgTbl2 {
+:NOT.W wArgTbl2 is (op0_8=0xE4) ... & wArgTbl2 & tbl2Width=1 {
 	wArgTbl2 = ~wArgTbl2;
 	zeroFlags(wArgTbl2);
 }
 
-:SWAP.B bArgTbl2 is (op0_8=0xE5) ... & bArgTbl2 {
+:SWAP.B bArgTbl2 is (op0_8=0xE5) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = bArgTbl2 << 4;
 	bArgTbl2 = (bArgTbl2 >> 4) | tmp;
 }
 
-:SWAP.W wArgTbl2 is (op0_8=0xE5) ... & wArgTbl2 {
+:SWAP.W wArgTbl2 is (op0_8=0xE5) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = wArgTbl2 << 8;
 	wArgTbl2 = (wArgTbl2 >> 8) | tmp;
 }
 
-:NEG.B bArgTbl2 is (op0_8=0xE6) ... & bArgTbl2 {
+:NEG.B bArgTbl2 is (op0_8=0xE6) ... & bArgTbl2 & tbl2Width=0 {
 	subFlags(0, bArgTbl2);
 	bArgTbl2 = 0 - bArgTbl2;
 	zeroFlags(bArgTbl2);
 }
 
-:NEG.W wArgTbl2 is (op0_8=0xE6) ... & wArgTbl2 {
+:NEG.W wArgTbl2 is (op0_8=0xE6) ... & wArgTbl2 & tbl2Width=1 {
 	subFlags(0, wArgTbl2);
 	wArgTbl2 = -wArgTbl2;
 	zeroFlags(wArgTbl2);
 }
 
-:PUSHA.B bArgTbl2 is (op0_8=0xE7) ... & bArgTbl2 {
+:PUSHA.B bArgTbl2 is (op0_8=0xE7) ... & bArgTbl2 & tbl2Width=0 {
 	push8(bArgTbl2);
 }
 
-:PUSHA.W wArgTbl2 is (op0_8=0xE7) ... & wArgTbl2 {
+:PUSHA.W wArgTbl2 is (op0_8=0xE7) ... & wArgTbl2 & tbl2Width=1 {
 	push16(wArgTbl2);
 }
 
-:MOV.G0.B bArgTbl2,bAddrAbs16 is (op0_8=0xE8; bAddrAbs16) ... & bArgTbl2 {
+:MOV.G0.B bArgTbl2,bAddrAbs16 is (op0_8=0xE8; bAddrAbs16) ... & bArgTbl2 & tbl2Width=0 {
 	bAddrAbs16 = bArgTbl2;
 }
 
-:MOV.G0.W wArgTbl2,wAddrAbs16 is (op0_8=0xE8; wAddrAbs16) ... & wArgTbl2 {
+:MOV.G0.W wArgTbl2,wAddrAbs16 is (op0_8=0xE8; wAddrAbs16) ... & wArgTbl2 & tbl2Width=1 {
 	wAddrAbs16 = wArgTbl2;
 }
 
-:MOV.G0.B bArgTbl2,bAddrAbs24 is (op0_8=0xE9; bAddrAbs24) ... & bArgTbl2 {
+:MOV.G0.B bArgTbl2,bAddrAbs24 is (op0_8=0xE9; bAddrAbs24) ... & bArgTbl2 & tbl2Width=0 {
 	bAddrAbs24 = bArgTbl2;
 }
 
-:MOV.G0.W wArgTbl2,wAddrAbs24 is (op0_8=0xE9; wAddrAbs24) ... & wArgTbl2 {
+:MOV.G0.W wArgTbl2,wAddrAbs24 is (op0_8=0xE9; wAddrAbs24) ... & wArgTbl2 & tbl2Width=1 {
 	wAddrAbs24 = wArgTbl2;
 }
 
-:INC.B bArgTbl2 is (op0_8=0xEC) ... & bArgTbl2 {
+:INC.B bArgTbl2 is (op0_8=0xEC) ... & bArgTbl2 & tbl2Width=0 {
 	addFlags(bArgTbl2,1);
 	bArgTbl2 = bArgTbl2 + 1;
 	zeroFlags(bArgTbl2);
 }
 
-:INC.W wArgTbl2 is (op0_8=0xEC) ... & wArgTbl2 {
+:INC.W wArgTbl2 is (op0_8=0xEC) ... & wArgTbl2 & tbl2Width=1 {
 	addFlags(wArgTbl2,1);
 	wArgTbl2 = wArgTbl2 + 1;
 	zeroFlags(wArgTbl2);
 }
 
-:DEC.B bArgTbl2 is (op0_8=0xED) ... & bArgTbl2 {
+:DEC.B bArgTbl2 is (op0_8=0xED) ... & bArgTbl2 & tbl2Width=0 {
 	subFlags(bArgTbl2,1);
 	bArgTbl2 = bArgTbl2 - 1;
 	zeroFlags(bArgTbl2);
 }
 
-:DEC.W wArgTbl2 is (op0_8=0xED) ... & wArgTbl2 {
+:DEC.W wArgTbl2 is (op0_8=0xED) ... & wArgTbl2 & tbl2Width=1 {
 	subFlags(wArgTbl2,1);
 	wArgTbl2 = wArgTbl2 - 1;
 	zeroFlags(wArgTbl2);
 }
 
 # TODO: Same implementation as PUSHA?!
-:PUSH.B bArgTbl2 is (op0_8=0xEF) ... & bArgTbl2 {
+:PUSH.B bArgTbl2 is (op0_8=0xEF) ... & bArgTbl2 & tbl2Width=0 {
 	push8(bArgTbl2);
 }
 
-:PUSH.W wArgTbl2 is (op0_8=0xEF) ... & wArgTbl2 {
+:PUSH.W wArgTbl2 is (op0_8=0xEF) ... & wArgTbl2 & tbl2Width=1 {
 	push16(wArgTbl2);
 }
 
-:SHAL.B bArgTbl2 is (op0_8=0xF0) ... & bArgTbl2 {
+:SHAL.B bArgTbl2 is (op0_8=0xF0) ... & bArgTbl2 & tbl2Width=0 {
 	bArgTbl2 = bArgTbl2 << 1;
 	zeroFlags(bArgTbl2);
 }
 
-:SHAL.W wArgTbl2 is (op0_8=0xF0) ... & wArgTbl2 {
+:SHAL.W wArgTbl2 is (op0_8=0xF0) ... & wArgTbl2 & tbl2Width=1 {
 	wArgTbl2 = wArgTbl2 << 1;
 	zeroFlags(wArgTbl2);
 }
 
-:SHAR.B bArgTbl2 is (op0_8=0xF1) ... & bArgTbl2 {
+:SHAR.B bArgTbl2 is (op0_8=0xF1) ... & bArgTbl2 & tbl2Width=0 {
 	bArgTbl2 = bArgTbl2 s>> 1;
 	zeroFlags(bArgTbl2);
 }
 
-:SHAR.W wArgTbl2 is (op0_8=0xF1) ... & wArgTbl2 {
+:SHAR.W wArgTbl2 is (op0_8=0xF1) ... & wArgTbl2 & tbl2Width=1 {
 	wArgTbl2 = wArgTbl2 s>> 1;
 	zeroFlags(wArgTbl2);
 }
 
-:SHLL.B bArgTbl2 is (op0_8=0xF2) ... & bArgTbl2 {
+:SHLL.B bArgTbl2 is (op0_8=0xF2) ... & bArgTbl2 & tbl2Width=0 {
 	bArgTbl2 = bArgTbl2 << 1;
 	zeroFlags(bArgTbl2);
 }
 
-:SHLL.W wArgTbl2 is (op0_8=0xF2) ... & wArgTbl2 {
+:SHLL.W wArgTbl2 is (op0_8=0xF2) ... & wArgTbl2 & tbl2Width=1 {
 	wArgTbl2 = wArgTbl2 << 1;
 	zeroFlags(wArgTbl2);
 }
 
-:SHLR.B bArgTbl2 is (op0_8=0xF3) ... & bArgTbl2 {
+:SHLR.B bArgTbl2 is (op0_8=0xF3) ... & bArgTbl2 & tbl2Width=0 {
 	bArgTbl2 = bArgTbl2 >> 1;
 	zeroFlags(bArgTbl2);
 }
 
-:SHLR.W wArgTbl2 is (op0_8=0xF3) ... & wArgTbl2 {
+:SHLR.W wArgTbl2 is (op0_8=0xF3) ... & wArgTbl2 & tbl2Width=1 {
 	wArgTbl2 = wArgTbl2 >> 1;
 	zeroFlags(wArgTbl2);
 }
 
-:ROTL.B bArgTbl2 is (op0_8=0xF4) ... & bArgTbl2 {
+:ROTL.B bArgTbl2 is (op0_8=0xF4) ... & bArgTbl2 & tbl2Width=0 {
 	tmp1:1 = bArgTbl2 >> 7;
 	tmp2:1 = bArgTbl2 << 1;
 	bArgTbl2 = tmp1 + tmp2;
 	zeroFlags(bArgTbl2);
 }
 
-:ROTL.W wArgTbl2 is (op0_8=0xF4) ... & wArgTbl2 {
+:ROTL.W wArgTbl2 is (op0_8=0xF4) ... & wArgTbl2 & tbl2Width=1 {
 	tmp1:2 = wArgTbl2 >> 15;
 	tmp2:2 = wArgTbl2 << 1;
 	wArgTbl2 = tmp1 + tmp2;
 	zeroFlags(wArgTbl2);
 }
 
-:ROTL.B bArgTbl2 is (op0_8=0xF5) ... & bArgTbl2 {
+:ROTL.B bArgTbl2 is (op0_8=0xF5) ... & bArgTbl2 & tbl2Width=0 {
 	tmp1:1 = bArgTbl2 >> 1;
 	tmp2:1 = bArgTbl2 << 7;
 	bArgTbl2 = tmp1 + tmp2;
 	zeroFlags(bArgTbl2);
 }
 
-:ROTL.W wArgTbl2 is (op0_8=0xF5) ... & wArgTbl2 {
+:ROTL.W wArgTbl2 is (op0_8=0xF5) ... & wArgTbl2 & tbl2Width=1 {
 	tmp1:2 = wArgTbl2 >> 1;
 	tmp2:2 = wArgTbl2 << 15;
 	wArgTbl2 = tmp1 + tmp2;
 	zeroFlags(wArgTbl2);
 }
 
-:SHXL.B bArgTbl2 is (op0_8=0xF6) ... & bArgTbl2 {
+:SHXL.B bArgTbl2 is (op0_8=0xF6) ... & bArgTbl2 & tbl2Width=0 {
 	bArgTbl2 = (bArgTbl2 << 1) + X;
 	zeroFlags(bArgTbl2);
 }
 
-:SHXL.W wArgTbl2 is (op0_8=0xF6) ... & wArgTbl2 {
+:SHXL.W wArgTbl2 is (op0_8=0xF6) ... & wArgTbl2 & tbl2Width=1 {
 	wArgTbl2 = (wArgTbl2 << 1) + zext(X);
 	zeroFlags(wArgTbl2);
 }
 
-:SHRL.B bArgTbl2 is (op0_8=0xF7) ... & bArgTbl2 {
+:SHRL.B bArgTbl2 is (op0_8=0xF7) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = X << 7;
 	bArgTbl2 = (bArgTbl2 >> 1) + tmp;
 	zeroFlags(bArgTbl2);
 }
 
-:SHRL.W wArgTbl2 is (op0_8=0xF7) ... & wArgTbl2 {
+:SHRL.W wArgTbl2 is (op0_8=0xF7) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = zext(X) << 15;
 	wArgTbl2 = (wArgTbl2 >> 1) + tmp;
 	zeroFlags(wArgTbl2);
@@ -1466,32 +1475,32 @@ with :phase=2 {
 	*:2 ptr = wArgTbl3;
 }
 
-:MOV.G0.B #bArgTbl3,@(simm16,extRegVal) is (op0_4=0x9 & opHalf4_1=1 & extRegVal; simm16) ... & bArgTbl3 {
-	ptr:3 = extRegVal + sext(simm16:2);
+:MOV.G0.B #bArgTbl3,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & indRegVal; simm16) ... & bArgTbl3 {
+	ptr:3 = indRegVal + sext(simm16:2);
 	*:1 ptr = bArgTbl3;
 }
 
-:MOV.G0.W #wArgTbl3,@(simm16,extRegVal) is (op0_4=0x9 & opHalf4_1=1 & extRegVal; simm16) ... & wArgTbl3 {
-	ptr:3 = extRegVal + sext(simm16:2);
+:MOV.G0.W #wArgTbl3,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & indRegVal; simm16) ... & wArgTbl3 {
+	ptr:3 = indRegVal + sext(simm16:2);
 	*:2 ptr = wArgTbl3;
 }
 
-:MOV.G0.B #bArgTbl3,@(simm8,extRegVal) is (op0_4=0xA & opHalf4_1=1 & extRegVal; simm8) ... & bArgTbl3 {
-	ptr:3 = extRegVal + sext(simm8:1);
+:MOV.G0.B #bArgTbl3,@(simm8,indRegVal) is (op0_4=0xA & opHalf4_1=1 & indRegVal; simm8) ... & bArgTbl3 {
+	ptr:3 = indRegVal + sext(simm8:1);
 	*:1 ptr = bArgTbl3;
 }
 
-:MOV.G0.W #wArgTbl3,@(simm8,extRegVal) is (op0_4=0xA & opHalf4_1=1 & extRegVal; simm8) ... & wArgTbl3 {
-	ptr:3 = extRegVal + sext(simm8:1);
+:MOV.G0.W #wArgTbl3,@(simm8,indRegVal) is (op0_4=0xA & opHalf4_1=1 & indRegVal; simm8) ... & wArgTbl3 {
+	ptr:3 = indRegVal + sext(simm8:1);
 	*:2 ptr = wArgTbl3;
 }
 
-:MOV.G0.B #bArgTbl3,@(extRegVal) is (op0_4=0xB & opHalf4_1=1 & extRegVal) ... & bArgTbl3 {
-	*:1 extRegVal = bArgTbl3;
+:MOV.G0.B #bArgTbl3,@(indRegVal) is (op0_4=0xB & opHalf4_1=1 & indRegVal) ... & bArgTbl3 {
+	*:1 indRegVal = bArgTbl3;
 }
 
-:MOV.G0.W #wArgTbl3,@(extRegVal) is (op0_4=0xB & opHalf4_1=1 & extRegVal) ... & wArgTbl3 {
-	*:2 extRegVal = wArgTbl3;
+:MOV.G0.W #wArgTbl3,@(indRegVal) is (op0_4=0xB & opHalf4_1=1 & indRegVal) ... & wArgTbl3 {
+	*:2 indRegVal = wArgTbl3;
 }
 
 :MOV.G0.B #bArgTbl3,bReg5_3 is (op0_4=0xC & opHalf4_1=1 & bReg5_3) ... & bArgTbl3 {
@@ -1798,7 +1807,7 @@ with :phase=3 {
 
 with :phase=4 {
 
-:B^cc tbl5RelAddr is (op0_4=0x0 & cc; tbl5RelAddr; imm8) ... {
+:B^cc tbl5RelAddr is (op0_4=0x0 & cc; tbl5RelAddr) ... {
 	if (cc) goto tbl5RelAddr;
 }
 
@@ -1813,12 +1822,12 @@ with :phase=4 {
 }
 
 :JMP @(regIndirect) is (op0_4=0xC & opHalf4_1=0 & regIndirect) ... {
-	goto regIndirect;
+	goto [regIndirect];
 }
 
 :JSR @(regIndirect) is (op0_4=0xC & opHalf4_1=1 & regIndirect) ... {
-	push16(&:2 inst_next);
-	call regIndirect;
+	# push16(&:2 inst_next);
+	call [regIndirect];
 }
 
 :POPC cwReg5_3 is (op0_4=0xD & opHalf4_1=0 & opData5_3=5 & cwReg5_3) ... {
@@ -1855,11 +1864,11 @@ macro tbl6Xor (a,b,c) {
 	zeroFlags(c);
 }
 
-:XOR.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 {
+:XOR.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Xor(wReg5_3, wArgTbl2, wArgTbl62);
 }
 
-:XOR.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 {
+:XOR.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Xor(bReg5_3, bArgTbl2, bArgTbl62);
 }
 
@@ -1871,11 +1880,11 @@ macro tbl6Xor (a,b,c) {
 	tbl6Xor(bReg5_3, bArgTbl3, bArgTbl63);
 }
 
-:XOR.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 {
+:XOR.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Xor(wReg5_3, wArgTbl2, wArgTbl67);
 }
 
-:XOR.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 {
+:XOR.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Xor(bReg5_3, bArgTbl2, bArgTbl67);
 }
 
@@ -1888,11 +1897,11 @@ macro tbl6Or (a,b,c) {
 	zeroFlags(c);
 }
 
-:OR.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0 & opHalf4_1=1 & wReg5_3) ... & wArgTbl62 & wArgTbl2 {
+:OR.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0 & opHalf4_1=1 & wReg5_3) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Or(wReg5_3, wArgTbl2, wArgTbl62);
 }
 
-:OR.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0 & opHalf4_1=1 & bReg5_3) ... & bArgTbl62 & bArgTbl2 {
+:OR.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0 & opHalf4_1=1 & bReg5_3) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Or(bReg5_3, bArgTbl2, bArgTbl62);
 }
 
@@ -1904,11 +1913,11 @@ macro tbl6Or (a,b,c) {
 	tbl6Or(bReg5_3, bArgTbl3, bArgTbl63);
 }
 
-:OR.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0 & opHalf4_1=1 & wReg5_3) ... & wArgTbl67 & wArgTbl2 {
+:OR.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0 & opHalf4_1=1 & wReg5_3) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Or(wReg5_3, wArgTbl2, wArgTbl67);
 }
 
-:OR.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0 & opHalf4_1=1 & bReg5_3) ... & bArgTbl67 & bArgTbl2 {
+:OR.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0 & opHalf4_1=1 & bReg5_3) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Or(bReg5_3, bArgTbl2, bArgTbl67);
 }
 
@@ -1921,11 +1930,11 @@ macro tbl6And (a,b,c) {
 	zeroFlags(c);
 }
 
-:AND.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0x2 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 {
+:AND.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0x2 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6And(wReg5_3, wArgTbl2, wArgTbl62);
 }
 
-:AND.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0x2 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 {
+:AND.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0x2 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6And(bReg5_3, bArgTbl2, bArgTbl62);
 }
 
@@ -1937,11 +1946,11 @@ macro tbl6And (a,b,c) {
 	tbl6And(bReg5_3, bArgTbl3, bArgTbl63);
 }
 
-:AND.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0x2 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 {
+:AND.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0x2 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6And(wReg5_3, wArgTbl2, wArgTbl67);
 }
 
-:AND.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0x2 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 {
+:AND.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0x2 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6And(bReg5_3, bArgTbl2, bArgTbl67);
 }
 
@@ -1955,11 +1964,11 @@ macro tbl6Subx (a,b,c) {
 	zeroFlags(c);
 }
 
-:SUBX.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0x3 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 {
+:SUBX.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0x3 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Subx(wReg5_3, wArgTbl2, wArgTbl62);
 }
 
-:SUBX.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0x3 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 {
+:SUBX.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0x3 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Subx(bReg5_3, bArgTbl2, bArgTbl62);
 }
 
@@ -1971,11 +1980,11 @@ macro tbl6Subx (a,b,c) {
 	tbl6Subx(bReg5_3, bArgTbl3, bArgTbl63);
 }
 
-:SUBX.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0x3 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 {
+:SUBX.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0x3 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Subx(wReg5_3, wArgTbl2, wArgTbl67);
 }
 
-:SUBX.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0x3 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 {
+:SUBX.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0x3 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Subx(bReg5_3, bArgTbl2, bArgTbl67);
 }
 
@@ -1989,11 +1998,11 @@ macro tbl6Addx (a,b,c) {
 	zeroFlags(c);
 }
 
-:ADDX.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0x4 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 {
+:ADDX.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0x4 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Addx(wReg5_3, wArgTbl2, wArgTbl62);
 }
 
-:ADDX.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0x4 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 {
+:ADDX.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0x4 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Addx(bReg5_3, bArgTbl2, bArgTbl62);
 }
 
@@ -2005,11 +2014,11 @@ macro tbl6Addx (a,b,c) {
 	tbl6Addx(bReg5_3, bArgTbl3, bArgTbl63);
 }
 
-:ADDX.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0x4 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 {
+:ADDX.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0x4 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Addx(wReg5_3, wArgTbl2, wArgTbl67);
 }
 
-:ADDX.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0x4 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 {
+:ADDX.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0x4 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Addx(bReg5_3, bArgTbl2, bArgTbl67);
 }
 
@@ -2023,11 +2032,11 @@ macro tbl6Sub (a,b,c) {
 	zeroFlags(c);
 }
 
-:SUB.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0x5 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 {
+:SUB.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0x5 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Sub(wReg5_3, wArgTbl2, wArgTbl62);
 }
 
-:SUB.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0x5 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 {
+:SUB.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0x5 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Sub(bReg5_3, bArgTbl2, bArgTbl62);
 }
 
@@ -2039,11 +2048,11 @@ macro tbl6Sub (a,b,c) {
 	tbl6Sub(bReg5_3, bArgTbl3, bArgTbl63);
 }
 
-:SUB.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0x5 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 {
+:SUB.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0x5 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Sub(wReg5_3, wArgTbl2, wArgTbl67);
 }
 
-:SUB.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0x5 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 {
+:SUB.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0x5 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Sub(bReg5_3, bArgTbl2, bArgTbl67);
 }
 
@@ -2057,11 +2066,11 @@ macro tbl6Add (a,b,c) {
 	zeroFlags(c);
 }
 
-:ADD.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0x6 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 {
+:ADD.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0x6 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Add(wReg5_3, wArgTbl2, wArgTbl62);
 }
 
-:ADD.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0x6 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 {
+:ADD.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0x6 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Add(bReg5_3, bArgTbl2, bArgTbl62);
 }
 
@@ -2073,11 +2082,11 @@ macro tbl6Add (a,b,c) {
 	tbl6Add(bReg5_3, bArgTbl3, bArgTbl63);
 }
 
-:ADD.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0x6 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 {
+:ADD.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0x6 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Add(wReg5_3, wArgTbl2, wArgTbl67);
 }
 
-:ADD.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0x6 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 {
+:ADD.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0x6 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Add(bReg5_3, bArgTbl2, bArgTbl67);
 }
 
@@ -2085,11 +2094,11 @@ macro tbl6Add (a,b,c) {
 	tbl6Add(lReg5_3, lArgTbl8, lArgTbl68);
 }
 
-:MOV.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xE7) ... & wArgTbl62 & wArgTbl2 {
+:MOV.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xE7) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	wArgTbl62 = wArgTbl2;
 }
 
-:MOV.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xE7) ... & bArgTbl62 & bArgTbl2 {
+:MOV.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xE7) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	bArgTbl62 = bArgTbl2;
 }
 
@@ -2101,11 +2110,11 @@ macro tbl6Add (a,b,c) {
 	bArgTbl63 = bArgTbl3;
 }
 
-:MOV.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xE7) ... & wArgTbl67 & wArgTbl2 {
+:MOV.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xE7) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	wArgTbl67 = wArgTbl2;
 }
 
-:MOV.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xE7) ... & bArgTbl67 & bArgTbl2 {
+:MOV.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xE7) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	bArgTbl67 = bArgTbl2;
 }
 
@@ -2119,11 +2128,11 @@ macro tbl6Daddx (a,b) {
 	zeroFlags(b);
 }
 
-:DADDX.W wArgTbl2,wArgTbl62 is (op0_8=0xEE) ... & wArgTbl62 & wArgTbl2 {
+:DADDX.W wArgTbl2,wArgTbl62 is (op0_8=0xEE) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Daddx(wArgTbl2, wArgTbl62);
 }
 
-:DADDX.B bArgTbl2,bArgTbl62 is (op0_8=0xEE) ... & bArgTbl62 & bArgTbl2 {
+:DADDX.B bArgTbl2,bArgTbl62 is (op0_8=0xEE) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Daddx(bArgTbl2, bArgTbl62);
 }
 
@@ -2135,11 +2144,11 @@ macro tbl6Daddx (a,b) {
 	tbl6Daddx(bArgTbl3, bArgTbl63);
 }
 
-:DADDX.W wArgTbl2,wArgTbl67 is (op0_8=0xEE) ... & wArgTbl67 & wArgTbl2 {
+:DADDX.W wArgTbl2,wArgTbl67 is (op0_8=0xEE) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Daddx(wArgTbl2, wArgTbl67);
 }
 
-:DADDX.B bArgTbl2,bArgTbl67 is (op0_8=0xEE) ... & bArgTbl67 & bArgTbl2 {
+:DADDX.B bArgTbl2,bArgTbl67 is (op0_8=0xEE) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Daddx(bArgTbl2, bArgTbl67);
 }
 
@@ -2153,11 +2162,11 @@ macro tbl6Dsubx (a,b) {
 	zeroFlags(b);
 }
 
-:DSUBX.W wArgTbl2,wArgTbl62 is (op0_8=0xEF) ... & wArgTbl62 & wArgTbl2 {
+:DSUBX.W wArgTbl2,wArgTbl62 is (op0_8=0xEF) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dsubx(wArgTbl2, wArgTbl62);
 }
 
-:DSUBX.B bArgTbl2,bArgTbl62 is (op0_8=0xEF) ... & bArgTbl62 & bArgTbl2 {
+:DSUBX.B bArgTbl2,bArgTbl62 is (op0_8=0xEF) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dsubx(bArgTbl2, bArgTbl62);
 }
 
@@ -2169,11 +2178,11 @@ macro tbl6Dsubx (a,b) {
 	tbl6Dsubx(bArgTbl3, bArgTbl63);
 }
 
-:DSUBX.W wArgTbl2,wArgTbl67 is (op0_8=0xEF) ... & wArgTbl67 & wArgTbl2 {
+:DSUBX.W wArgTbl2,wArgTbl67 is (op0_8=0xEF) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dsubx(wArgTbl2, wArgTbl67);
 }
 
-:DSUBX.B bArgTbl2,bArgTbl67 is (op0_8=0xEF) ... & bArgTbl67 & bArgTbl2 {
+:DSUBX.B bArgTbl2,bArgTbl67 is (op0_8=0xEF) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dsubx(bArgTbl2, bArgTbl67);
 }
 
@@ -2186,11 +2195,11 @@ macro tbl6Dxor (a,b) {
 	zeroFlags(b);
 }
 
-:XOR.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xF8) ... & wArgTbl62 & wArgTbl2 {
+:XOR.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xF8) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dxor(wArgTbl2, wArgTbl62);
 }
 
-:XOR.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xF8) ... & bArgTbl62 & bArgTbl2 {
+:XOR.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xF8) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dxor(bArgTbl2, bArgTbl62);
 }
 
@@ -2202,11 +2211,11 @@ macro tbl6Dxor (a,b) {
 	tbl6Dxor(bArgTbl3, bArgTbl63);
 }
 
-:XOR.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xF8) ... & wArgTbl67 & wArgTbl2 {
+:XOR.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xF8) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dxor(wArgTbl2, wArgTbl67);
 }
 
-:XOR.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xF8) ... & bArgTbl67 & bArgTbl2 {
+:XOR.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xF8) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dxor(bArgTbl2, bArgTbl67);
 }
 
@@ -2219,11 +2228,11 @@ macro tbl6Dor (a,b) {
 	zeroFlags(b);
 }
 
-:OR.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xF9) ... & wArgTbl62 & wArgTbl2 {
+:OR.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xF9) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dor(wArgTbl2, wArgTbl62);
 }
 
-:OR.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xF9) ... & bArgTbl62 & bArgTbl2 {
+:OR.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xF9) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dor(bArgTbl2, bArgTbl62);
 }
 
@@ -2235,11 +2244,11 @@ macro tbl6Dor (a,b) {
 	tbl6Dor(bArgTbl3, bArgTbl63);
 }
 
-:OR.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xF9) ... & wArgTbl67 & wArgTbl2 {
+:OR.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xF9) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dor(wArgTbl2, wArgTbl67);
 }
 
-:OR.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xF9) ... & bArgTbl67 & bArgTbl2 {
+:OR.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xF9) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dor(bArgTbl2, bArgTbl67);
 }
 
@@ -2252,11 +2261,11 @@ macro tbl6Dand (a,b) {
 	zeroFlags(b);
 }
 
-:AND.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFA) ... & wArgTbl62 & wArgTbl2 {
+:AND.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFA) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dand(wArgTbl2, wArgTbl62);
 }
 
-:AND.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFA) ... & bArgTbl62 & bArgTbl2 {
+:AND.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFA) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dand(bArgTbl2, bArgTbl62);
 }
 
@@ -2268,11 +2277,11 @@ macro tbl6Dand (a,b) {
 	tbl6Dand(bArgTbl3, bArgTbl63);
 }
 
-:AND.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFA) ... & wArgTbl67 & wArgTbl2 {
+:AND.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFA) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dand(wArgTbl2, wArgTbl67);
 }
 
-:AND.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFA) ... & bArgTbl67 & bArgTbl2 {
+:AND.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFA) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dand(bArgTbl2, bArgTbl67);
 }
 
@@ -2280,11 +2289,11 @@ macro tbl6Dand (a,b) {
 	tbl6Dand(lArgTbl8, lArgTbl68);
 }
 
-:SUBX.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFB) ... & wArgTbl62 & wArgTbl2 {
+:SUBX.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFB) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dsubx(wArgTbl2, wArgTbl62);
 }
 
-:SUBX.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFB) ... & bArgTbl62 & bArgTbl2 {
+:SUBX.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFB) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dsubx(bArgTbl2, bArgTbl62);
 }
 
@@ -2296,11 +2305,11 @@ macro tbl6Dand (a,b) {
 	tbl6Dsubx(bArgTbl3, bArgTbl63);
 }
 
-:SUBX.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFB) ... & wArgTbl67 & wArgTbl2 {
+:SUBX.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFB) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dsubx(wArgTbl2, wArgTbl67);
 }
 
-:SUBX.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFB) ... & bArgTbl67 & bArgTbl2 {
+:SUBX.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFB) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dsubx(bArgTbl2, bArgTbl67);
 }
 
@@ -2308,11 +2317,11 @@ macro tbl6Dand (a,b) {
 	tbl6Dsubx(lArgTbl8, lArgTbl68);
 }
 
-:ADDX.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFC) ... & wArgTbl62 & wArgTbl2 {
+:ADDX.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFC) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Daddx(wArgTbl2, wArgTbl62);
 }
 
-:ADDX.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFC) ... & bArgTbl62 & bArgTbl2 {
+:ADDX.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFC) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Daddx(bArgTbl2, bArgTbl62);
 }
 
@@ -2324,11 +2333,11 @@ macro tbl6Dand (a,b) {
 	tbl6Daddx(bArgTbl3, bArgTbl63);
 }
 
-:ADDX.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFC) ... & wArgTbl67 & wArgTbl2 {
+:ADDX.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFC) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Daddx(wArgTbl2, wArgTbl67);
 }
 
-:ADDX.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFC) ... & bArgTbl67 & bArgTbl2 {
+:ADDX.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFC) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Daddx(bArgTbl2, bArgTbl67);
 }
 
@@ -2342,11 +2351,11 @@ macro tbl6Dsub (a,b) {
 	zeroFlags(b);
 }
 
-:SUB.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFD) ... & wArgTbl62 & wArgTbl2 {
+:SUB.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFD) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dsub(wArgTbl2, wArgTbl62);
 }
 
-:SUB.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFD) ... & bArgTbl62 & bArgTbl2 {
+:SUB.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFD) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dsub(bArgTbl2, bArgTbl62);
 }
 
@@ -2358,11 +2367,11 @@ macro tbl6Dsub (a,b) {
 	tbl6Dsub(bArgTbl3, bArgTbl63);
 }
 
-:SUB.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFD) ... & wArgTbl67 & wArgTbl2 {
+:SUB.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFD) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dsub(wArgTbl2, wArgTbl67);
 }
 
-:SUB.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFD) ... & bArgTbl67 & bArgTbl2 {
+:SUB.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFD) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dsub(bArgTbl2, bArgTbl67);
 }
 
@@ -2376,11 +2385,11 @@ macro tbl6Dadd (a,b) {
 	zeroFlags(b);
 }
 
-:ADD.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFE) ... & wArgTbl62 & wArgTbl2 {
+:ADD.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFE) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dadd(wArgTbl2, wArgTbl62);
 }
 
-:ADD.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFE) ... & bArgTbl62 & bArgTbl2 {
+:ADD.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFE) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dadd(bArgTbl2, bArgTbl62);
 }
 
@@ -2392,11 +2401,11 @@ macro tbl6Dadd (a,b) {
 	tbl6Dadd(bArgTbl3, bArgTbl63);
 }
 
-:ADD.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFE) ... & wArgTbl67 & wArgTbl2 {
+:ADD.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFE) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dadd(wArgTbl2, wArgTbl67);
 }
 
-:ADD.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFE) ... & bArgTbl67 & bArgTbl2 {
+:ADD.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFE) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dadd(bArgTbl2, bArgTbl67);
 }
 
@@ -2409,11 +2418,11 @@ macro tbl6Dcmp (a,b) {
 	zeroFlags(a-b);
 }
 
-:CMP.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFF) ... & wArgTbl62 & wArgTbl2 {
+:CMP.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFF) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dcmp(wArgTbl2, wArgTbl62);
 }
 
-:CMP.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFF) ... & bArgTbl62 & bArgTbl2 {
+:CMP.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFF) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dcmp(bArgTbl2, bArgTbl62);
 }
 
@@ -2425,11 +2434,11 @@ macro tbl6Dcmp (a,b) {
 	tbl6Dcmp(bArgTbl3, bArgTbl63);
 }
 
-:CMP.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFF) ... & wArgTbl67 & wArgTbl2 {
+:CMP.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFF) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
 	tbl6Dcmp(wArgTbl2, wArgTbl67);
 }
 
-:CMP.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFF) ... & bArgTbl67 & bArgTbl2 {
+:CMP.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFF) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
 	tbl6Dcmp(bArgTbl2, bArgTbl67);
 }
 
@@ -2442,257 +2451,257 @@ macro tbl6Dcmp (a,b) {
 ###### TABLE 7
 with :phase=6 {
 
-:XOR.L bArgTbl2,lReg5_3 is (op0_4=0x0 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 {
+:XOR.L bArgTbl2,lReg5_3 is (op0_4=0x0 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	lReg5_3 = lReg5_3 ^ zext(bArgTbl2);
 	zeroFlags(lReg5_3);
 }
 
-:XOR.L wArgTbl2,lReg5_3 is (op0_4=0x0 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 {
+:XOR.L wArgTbl2,lReg5_3 is (op0_4=0x0 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	lReg5_3 = lReg5_3 ^ zext(wArgTbl2);
 	zeroFlags(lReg5_3);
 }
 
-:BXOR bArgTbl2"."bIdx3 is (op0_4=0x0 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BXOR bArgTbl2"."bIdx3 is (op0_4=0x0 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	bArgTbl2 = bArgTbl2 ^ tmp;
 	zeroFlags(bArgTbl2);
 }
 
-:BXOR wArgTbl2"."bIdx3 is (op0_4=0x0 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BXOR wArgTbl2"."bIdx3 is (op0_4=0x0 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	wArgTbl2 = wArgTbl2 ^ tmp;
 	zeroFlags(wArgTbl2);
 }
 
-:OR.L bArgTbl2,lReg5_3 is (op0_4=0x1 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 {
+:OR.L bArgTbl2,lReg5_3 is (op0_4=0x1 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	lReg5_3 = lReg5_3 | zext(bArgTbl2);
 	zeroFlags(lReg5_3);
 }
 
-:OR.L wArgTbl2,lReg5_3 is (op0_4=0x1 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 {
+:OR.L wArgTbl2,lReg5_3 is (op0_4=0x1 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	lReg5_3 = lReg5_3 | zext(wArgTbl2);
 	zeroFlags(lReg5_3);
 }
 
-:BOR bArgTbl2"."bIdx3 is (op0_4=0x1 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BOR bArgTbl2"."bIdx3 is (op0_4=0x1 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	bArgTbl2 = bArgTbl2 | tmp;
 	zeroFlags(bArgTbl2);
 }
 
-:BOR wArgTbl2"."bIdx3 is (op0_4=0x1 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BOR wArgTbl2"."bIdx3 is (op0_4=0x1 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	wArgTbl2 = wArgTbl2 | tmp;
 	zeroFlags(wArgTbl2);
 }
 
-:AND.L bArgTbl2,lReg5_3 is (op0_4=0x2 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 {
+:AND.L bArgTbl2,lReg5_3 is (op0_4=0x2 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	lReg5_3 = lReg5_3 & zext(bArgTbl2);
 	zeroFlags(lReg5_3);
 }
 
-:AND.L wArgTbl2,lReg5_3 is (op0_4=0x2 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 {
+:AND.L wArgTbl2,lReg5_3 is (op0_4=0x2 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	lReg5_3 = lReg5_3 & zext(wArgTbl2);
 	zeroFlags(lReg5_3);
 }
 
-:BAND bArgTbl2"."bIdx3 is (op0_4=0x2 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BAND bArgTbl2"."bIdx3 is (op0_4=0x2 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 0xFF;
 	bArgTbl2 = bArgTbl2 & tmp;
 	zeroFlags(bArgTbl2);
 }
 
-:BAND wArgTbl2"."bIdx3 is (op0_4=0x2 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BAND wArgTbl2"."bIdx3 is (op0_4=0x2 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 0xFFFF;
 	wArgTbl2 = wArgTbl2 & tmp;
 	zeroFlags(wArgTbl2);
 }
 
-:SUBX.L bArgTbl2,lReg5_3 is (op0_4=0x3 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 {
+:SUBX.L bArgTbl2,lReg5_3 is (op0_4=0x3 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	subFlags(lReg5_3, sext(bArgTbl2));
 	lReg5_3 = lReg5_3 - sext(bArgTbl2) - zext(X);
 	zeroFlags(lReg5_3);
 }
 
-:SUBX.L wArgTbl2,lReg5_3 is (op0_4=0x3 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 {
+:SUBX.L wArgTbl2,lReg5_3 is (op0_4=0x3 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	subFlags(lReg5_3, sext(wArgTbl2));
 	lReg5_3 = lReg5_3 - sext(wArgTbl2) - zext(X);
 	zeroFlags(lReg5_3);
 }
 
-:BNOT bArgTbl2"."bIdx3 is (op0_4=0x3 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BNOT bArgTbl2"."bIdx3 is (op0_4=0x3 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	bArgTbl2 = bArgTbl2 ^ tmp;
 	zeroFlags(bArgTbl2);
 }
 
-:BNOT wArgTbl2"."bIdx3 is (op0_4=0x3 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BNOT wArgTbl2"."bIdx3 is (op0_4=0x3 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	wArgTbl2 = wArgTbl2 ^ tmp;
 	zeroFlags(wArgTbl2);
 }
 
-:ADDX.L bArgTbl2,lReg5_3 is (op0_4=0x4 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 {
+:ADDX.L bArgTbl2,lReg5_3 is (op0_4=0x4 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	addFlags(lReg5_3, zext(bArgTbl2));
 	lReg5_3 = lReg5_3 + zext(bArgTbl2) + zext(X);
 	zeroFlags(lReg5_3);
 }
 
-:ADDX.L wArgTbl2,lReg5_3 is (op0_4=0x4 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 {
+:ADDX.L wArgTbl2,lReg5_3 is (op0_4=0x4 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	addFlags(lReg5_3, zext(wArgTbl2));
 	lReg5_3 = lReg5_3 + zext(wArgTbl2) + zext(X);
 	zeroFlags(lReg5_3);
 }
 
-:BSET bArgTbl2"."bIdx3 is (op0_4=0x4 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BSET bArgTbl2"."bIdx3 is (op0_4=0x4 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	bArgTbl2 = bArgTbl2 | tmp;
 	zeroFlags(bArgTbl2);
 }
 
-:BSET wArgTbl2"."bIdx3 is (op0_4=0x4 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BSET wArgTbl2"."bIdx3 is (op0_4=0x4 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	wArgTbl2 = wArgTbl2 | tmp;
 	zeroFlags(wArgTbl2);
 }
 
-:SUB.L bArgTbl2,lReg5_3 is (op0_4=0x5 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 {
+:SUB.L bArgTbl2,lReg5_3 is (op0_4=0x5 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	subFlags(lReg5_3, zext(bArgTbl2));
 	lReg5_3 = lReg5_3 - zext(bArgTbl2);
 	zeroFlags(lReg5_3);
 }
 
-:SUB.L wArgTbl2,lReg5_3 is (op0_4=0x5 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 {
+:SUB.L wArgTbl2,lReg5_3 is (op0_4=0x5 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	subFlags(lReg5_3, zext(wArgTbl2));
 	lReg5_3 = lReg5_3 - zext(wArgTbl2);
 	zeroFlags(lReg5_3);
 }
 
-:BCLR bArgTbl2"."bIdx3 is (op0_4=0x5 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BCLR bArgTbl2"."bIdx3 is (op0_4=0x5 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = ~(1 << bIdx3);
 	bArgTbl2 = bArgTbl2 & tmp;
 	zeroFlags(bArgTbl2);
 }
 
-:BCLR wArgTbl2"."bIdx3 is (op0_4=0x5 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BCLR wArgTbl2"."bIdx3 is (op0_4=0x5 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = ~(1 << bIdx3);
 	wArgTbl2 = wArgTbl2 & tmp;
 	zeroFlags(wArgTbl2);
 }
 
-:ADD.L bArgTbl2,lReg5_3 is (op0_4=0x6 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 {
+:ADD.L bArgTbl2,lReg5_3 is (op0_4=0x6 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	addFlags(lReg5_3, zext(bArgTbl2));
 	lReg5_3 = lReg5_3 + zext(bArgTbl2);
 	zeroFlags(lReg5_3);
 }
 
-:ADD.L wArgTbl2,lReg5_3 is (op0_4=0x6 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 {
+:ADD.L wArgTbl2,lReg5_3 is (op0_4=0x6 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	addFlags(lReg5_3, zext(wArgTbl2));
 	lReg5_3 = lReg5_3 + zext(wArgTbl2);
 	zeroFlags(lReg5_3);
 }
 
-:BLD bArgTbl2"."bIdx3 is (op0_4=0x6 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BLD bArgTbl2"."bIdx3 is (op0_4=0x6 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = T << bIdx3;
 	Z = (bArgTbl2 & tmp) == 0;
 	bArgTbl2 = bArgTbl2 | tmp;
 }
 
-:BLD wArgTbl2"."bIdx3 is (op0_4=0x6 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BLD wArgTbl2"."bIdx3 is (op0_4=0x6 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = zext(T) << bIdx3;
 	Z = (wArgTbl2 & tmp) == 0;
 	wArgTbl2 = wArgTbl2 | tmp;
 }
 
-:CMP.L bArgTbl2,lReg5_3 is (op0_4=0x7 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 {
+:CMP.L bArgTbl2,lReg5_3 is (op0_4=0x7 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	subFlags(lReg5_3, zext(bArgTbl2));
 	tmp:4 = lReg5_3 - zext(bArgTbl2);
 	zeroFlags(tmp);
 }
 
-:CMP.L wArgTbl2,lReg5_3 is (op0_4=0x7 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 {
+:CMP.L wArgTbl2,lReg5_3 is (op0_4=0x7 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	subFlags(lReg5_3, zext(wArgTbl2));
 	tmp:4 = lReg5_3 - zext(wArgTbl2);
 	zeroFlags(tmp);
 }
 
-:BST bArgTbl2"."bIdx3 is (op0_4=0x7 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 {
+:BST bArgTbl2"."bIdx3 is (op0_4=0x7 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	Z = (bArgTbl2 & tmp) == 0;
 	T = (bArgTbl2 & tmp) == 1;
 }
 
-:BST wArgTbl2"."bIdx3 is (op0_4=0x7 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 {
+:BST wArgTbl2"."bIdx3 is (op0_4=0x7 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	Z = (wArgTbl2 & tmp) == 0;
 	T = (wArgTbl2 & tmp) == 1;
 }
 
-:MOV.L bArgTbl2,lReg5_3 is (op0_4=0x8 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 {
+:MOV.L bArgTbl2,lReg5_3 is (op0_4=0x8 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	lReg5_3 = zext(bArgTbl2);
 }
 
-:MOV.L wArgTbl2,lReg5_3 is (op0_4=0x8 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 {
+:MOV.L wArgTbl2,lReg5_3 is (op0_4=0x8 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	lReg5_3 = zext(wArgTbl2);
 }
 
-:MOV.L lReg5_3,bArgTbl2 is (op0_4=0x8 & opHalf4_1=1 & lReg5_3) ... & bArgTbl2 {
+:MOV.L lReg5_3,bArgTbl2 is (op0_4=0x8 & opHalf4_1=1 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	bArgTbl2 = lReg5_3:1;
 }
 
-:MOV.L lReg5_3,wArgTbl2 is (op0_4=0x8 & opHalf4_1=1 & lReg5_3) ... & wArgTbl2 {
+:MOV.L lReg5_3,wArgTbl2 is (op0_4=0x8 & opHalf4_1=1 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	wArgTbl2 = lReg5_3:2;
 }
 
-:XCH bArgTbl2,bReg5_3 is (op0_4=0x9 & opHalf4_1=1 & bReg5_3) ... & bArgTbl2 {
+:XCH bArgTbl2,bReg5_3 is (op0_4=0x9 & opHalf4_1=1 & bReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = bArgTbl2;
 	bArgTbl2 = bReg5_3;
 	bReg5_3 = tmp;
 }
 
-:XCH wArgTbl2,wReg5_3 is (op0_4=0x9 & opHalf4_1=1 & wReg5_3) ... & wArgTbl2 {
+:XCH wArgTbl2,wReg5_3 is (op0_4=0x9 & opHalf4_1=1 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = wArgTbl2;
 	wArgTbl2 = wReg5_3;
 	wReg5_3 = tmp;
 }
 
-:MOVA.W bArgTbl2,wReg5_3 is (op0_4=0xC & opHalf4_1=0 & wReg5_3) ... & bArgTbl2 {
+:MOVA.W bArgTbl2,wReg5_3 is (op0_4=0xC & opHalf4_1=0 & wReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	wReg5_3 = zext(bArgTbl2);
 }
 
-:MOVA.W wArgTbl2,wReg5_3 is (op0_4=0xC & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 {
+:MOVA.W wArgTbl2,wReg5_3 is (op0_4=0xC & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	wReg5_3 = wArgTbl2;
 }
 
-:MOVX.W bArgTbl2,lReg5_3 is (op0_4=0xD & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 {
+:MOVX.W bArgTbl2,lReg5_3 is (op0_4=0xD & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	lReg5_3 = sext(bArgTbl2);
 }
 
-:MOVX.W wArgTbl2,lReg5_3 is (op0_4=0xD & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 {
+:MOVX.W wArgTbl2,lReg5_3 is (op0_4=0xD & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	lReg5_3 = sext(wArgTbl2);
 }
 
-:MOVXU.W bArgTbl2,lReg5_3 is (op0_4=0xD & opHalf4_1=1 & lReg5_3) ... & bArgTbl2 {
+:MOVXU.W bArgTbl2,lReg5_3 is (op0_4=0xD & opHalf4_1=1 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	lReg5_3 = zext(bArgTbl2);
 }
 
-:MOVXU.W wArgTbl2,lReg5_3 is (op0_4=0xD & opHalf4_1=1 & lReg5_3) ... & wArgTbl2 {
+:MOVXU.W wArgTbl2,lReg5_3 is (op0_4=0xD & opHalf4_1=1 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	lReg5_3 = zext(wArgTbl2);
 }
 
-:MOVX.W bArgTbl2,wReg5_3 is (op0_4=0xE & opHalf4_1=0 & wReg5_3) ... & bArgTbl2 {
+:MOVX.W bArgTbl2,wReg5_3 is (op0_4=0xE & opHalf4_1=0 & wReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	wReg5_3 = sext(bArgTbl2);
 }
 
-:MOVX.W wArgTbl2,wReg5_3 is (op0_4=0xE & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 {
+:MOVX.W wArgTbl2,wReg5_3 is (op0_4=0xE & opHalf4_1=0 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	wReg5_3 = wArgTbl2;
 }
 
-:MOVXU.W bArgTbl2,wReg5_3 is (op0_4=0xE & opHalf4_1=1 & wReg5_3) ... & bArgTbl2 {
+:MOVXU.W bArgTbl2,wReg5_3 is (op0_4=0xE & opHalf4_1=1 & wReg5_3) ... & bArgTbl2 & tbl2Width=0 {
 	wReg5_3 = zext(bArgTbl2);
 }
 
-:MOVXU.W wArgTbl2,wReg5_3 is (op0_4=0xE & opHalf4_1=1 & wReg5_3) ... & wArgTbl2 {
+:MOVXU.W wArgTbl2,wReg5_3 is (op0_4=0xE & opHalf4_1=1 & wReg5_3) ... & wArgTbl2 & tbl2Width=1 {
 	wReg5_3 = wArgTbl2;
 }
 

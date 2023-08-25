@@ -1,17 +1,18 @@
 <processor_spec>
 	<programcounter register="PC"/>
 	
-	<segmentop space="ram" userop="segment" farpointer="yes">
+	<segmentop space="ram" userop="segment" farpointer="no">
 		<pcode>
 			<input name="base" size="1"/>
 			<input name="inner" size="2"/>
 			<output name="res" size="3"/>
 			<body><![CDATA[
-				res = (base << 16) + inner;
+				res = (zext(base) << 16) + zext(inner);
 			]]></body>
 		</pcode>
+		
 		<constresolve>
-			<register name="UTP" />
+		  <register name="UTP"/>
 		</constresolve>
 	</segmentop>
 	
