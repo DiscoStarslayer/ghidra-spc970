@@ -69,7 +69,10 @@ define context contextreg
 	tbl8Mode	= (4,6)
 	prefix		= (8,15)
 	data1		= (16,39)
-	data2		= (40,56)
+	data2		= (40,55)
+	data3		= (56,79)
+	prefix2		= (80,95)
+	data4		= (96,111)
 ;
 
 define token opbyte (8)
@@ -319,6 +322,32 @@ regIndirect: wReg5_3 is (opData5_3=6 | opData5_3=7) & wReg5_3 { tmp:3 = (zext(UT
 # Table 7 only reachable through table 2
 :^instruction is phase=1 & op0_8=0xE2												; instruction [ phase=6; ] {}
 
+# Table 6 preludes
+# From tbl2:
+:^instruction is phase=1 & op0_4=0x8 & opHalf4_1=0 & opData5_3				; imm8	; instruction [ prefix2=0x0280; phase=5; data3=opData5_3; data4=imm8; ] {}
+:^instruction is phase=1 & op0_4=0x9 & opHalf4_1=0 & opData5_3				; simm16; instruction [ prefix2=0x0290; phase=5; data3=opData5_3; data4=simm16; ] {}
+:^instruction is phase=1 & op0_4=0xA & opHalf4_1=0 & opData5_3				; simm8	; instruction [ prefix2=0x02A0; phase=5; data3=opData5_3; data4=simm8; ] {}
+:^instruction is phase=1 & op0_4=0xB & opHalf4_1=0 & opData5_3						; instruction [ prefix2=0x02B0; phase=5; data3=opData5_3; ] {}
+:^instruction is phase=1 & op0_4=0xC & opHalf4_1=0 & opData5_3						; instruction [ prefix2=0x02C0; phase=5; data3=opData5_3; ] {}
+:^instruction is phase=1 & op0_8=0xE0										; imm16	; instruction [ prefix2=0x02E0; phase=5; data3=imm16; ] {}
+:^instruction is phase=1 & op0_8=0xE1										; imm24	; instruction [ prefix2=0x02E1; phase=5; data3=imm24; ] {}
+# From tbl3:
+:^instruction is phase=2 & op0_4=0x8 & opHalf4_1=0 & opData5_3				; imm8	; instruction [ prefix2=0x0380; phase=5; data3=opData5_3; data4=imm8; ] {}
+:^instruction is phase=2 & op0_4=0x9 & opHalf4_1=0 & opData5_3				; simm16; instruction [ prefix2=0x0390; phase=5; data3=opData5_3; data4=simm16; ] {}
+:^instruction is phase=2 & op0_4=0xA & opHalf4_1=0 & opData5_3				; simm8	; instruction [ prefix2=0x03A0; phase=5; data3=opData5_3; data4=simm8; ] {}
+:^instruction is phase=2 & op0_4=0xB & opHalf4_1=0 & opData5_3						; instruction [ prefix2=0x03B0; phase=5; data3=opData5_3; ] {}
+:^instruction is phase=2 & op0_4=0xC & opHalf4_1=0 & opData5_3						; instruction [ prefix2=0x03C0; phase=5; data3=opData5_3; ] {}
+:^instruction is phase=2 & op0_8=0xE0										; imm16	; instruction [ prefix2=0x03E0; phase=5; data3=imm16; ] {}
+:^instruction is phase=2 & op0_8=0xE1										; imm24	; instruction [ prefix2=0x03E1; phase=5; data3=imm24; ] {}
+# From tbl7:
+:^instruction is phase=6 & op0_4=0x9 & opHalf4_1=0 & opData5_3						; instruction [ prefix2=0x0790; phase=5; data3=opData5_3; ] {}
+:^instruction is phase=6 & op0_4=0xA & opHalf4_1=0 & opData5_3						; instruction [ prefix2=0x07A0; phase=5; data3=opData5_3; ] {}
+:^instruction is phase=6 & op0_4=0xA & opHalf4_1=1 & opData5_3						; instruction [ prefix2=0x07A1; phase=5; data3=opData5_3; ] {}
+# From tbl8:
+:^instruction is phase=7 & op0_4=0x9 & opHalf4_1=0 & opData5_3						; instruction [ prefix2=0x0890; phase=5; data3=opData5_3; ] {}
+:^instruction is phase=7 & op0_4=0xA & opHalf4_1=0 & opData5_3						; instruction [ prefix2=0x08A0; phase=5; data3=opData5_3; ] {}
+:^instruction is phase=7 & op0_4=0xA & opHalf4_1=1 & opData5_3						; instruction [ prefix2=0x08A1; phase=5; data3=opData5_3; ] {}
+
 # Table 8 preludes
 # Table 8 only reachable through table 3
 :^instruction is phase=2 & op0_8=0xE2												; instruction [ phase=7; tbl8Mode=0; ] {}
@@ -347,6 +376,29 @@ lConToReg: RL2 is data1=2 & RL2 { export RL2; }
 lConToReg: RL4 is data1=4 & RL4 { export RL4; }
 lConToReg: RL6 is data1=6 & RL6 { export RL6; }
 
+bCon3ToReg: RB0 is data3=0 & RB0 { export RB0; }
+bCon3ToReg: RB1 is data3=1 & RB1 { export RB1; }
+bCon3ToReg: RB2 is data3=2 & RB2 { export RB2; }
+bCon3ToReg: RB3 is data3=3 & RB3 { export RB3; }
+bCon3ToReg: RB4 is data3=4 & RB4 { export RB4; }
+bCon3ToReg: RB5 is data3=5 & RB5 { export RB5; }
+bCon3ToReg: RB6 is data3=6 & RB6 { export RB6; }
+bCon3ToReg: RB7 is data3=7 & RB7 { export RB7; }
+
+wCon3ToReg: RW0 is data3=0 & RW0 { export RW0; }
+wCon3ToReg: RW1 is data3=1 & RW1 { export RW1; }
+wCon3ToReg: RW2 is data3=2 & RW2 { export RW2; }
+wCon3ToReg: RW3 is data3=3 & RW3 { export RW3; }
+wCon3ToReg: RW4 is data3=4 & RW4 { export RW4; }
+wCon3ToReg: RW5 is data3=5 & RW5 { export RW5; }
+wCon3ToReg: FP  is data3=6 & FP  { export FP;  }
+wCon3ToReg: SP  is data3=7 & SP  { export SP;  }
+
+lCon3ToReg: RL0 is data3=0 & RL0 { export RL0; }
+lCon3ToReg: RL2 is data3=2 & RL2 { export RL2; }
+lCon3ToReg: RL4 is data3=4 & RL4 { export RL4; }
+lCon3ToReg: RL6 is data3=6 & RL6 { export RL6; }
+
 cConToReg: UTP is data1=0 & UTP { export UTP; }
 cConToReg: DP  is data1=1 & DP  { export DP ; }
 cConToReg: EP  is data1=2 & EP  { export EP ; }
@@ -369,7 +421,19 @@ pstiExtRegVal: wConToReg is (data1=0 | data1=1 | data1=2 | data1=3) & wConToReg 
 pstiExtRegVal: wConToReg is (data1=4 | data1=5) & wConToReg { tmp:3 = (zext(EP) << 16) + zext(wConToReg:2); wConToReg = wConToReg + 1; export tmp; }
 pstiExtRegVal: wConToReg is (data1=6 | data1=7) & wConToReg { tmp:3 = (zext(UTP) << 16) + zext(wConToReg:2); wConToReg = wConToReg + 1; export tmp; }
 
-with :(phase=1|phase=6) {
+extRegVal3: wCon3ToReg is (data3=0 | data3=1 | data3=2 | data3=3) & wCon3ToReg { tmp:3 = (zext(DP) << 16) + zext(wCon3ToReg:2); export tmp; }
+extRegVal3: wCon3ToReg is (data3=4 | data3=5) & wCon3ToReg { tmp:3 = (zext(EP) << 16) + zext(wCon3ToReg:2); export tmp; }
+extRegVal3: wCon3ToReg is (data3=6 | data3=7) & wCon3ToReg { tmp:3 = (zext(UTP) << 16) + zext(wCon3ToReg:2); export tmp; }
+
+predExtRegVal3: wCon3ToReg is (data3=0 | data3=1 | data3=2 | data3=3) & wCon3ToReg { wCon3ToReg = wCon3ToReg - 1; tmp:3 = (zext(DP) << 16) + zext(wCon3ToReg:2); export tmp; }
+predExtRegVal3: wCon3ToReg is (data3=4 | data3=5) & wCon3ToReg { wCon3ToReg = wCon3ToReg - 1; tmp:3 = (zext(EP) << 16) + zext(wCon3ToReg:2); export tmp; }
+predExtRegVal3: wCon3ToReg is (data3=6 | data3=7) & wCon3ToReg { wCon3ToReg = wCon3ToReg - 1; tmp:3 = (zext(UTP) << 16) + zext(wCon3ToReg:2); export tmp; }
+
+pstiExtRegVal3: wCon3ToReg is (data3=0 | data3=1 | data3=2 | data3=3) & wCon3ToReg { tmp:3 = (zext(DP) << 16) + zext(wCon3ToReg:2); wCon3ToReg = wCon3ToReg + 1; export tmp; }
+pstiExtRegVal3: wCon3ToReg is (data3=4 | data3=5) & wCon3ToReg { tmp:3 = (zext(EP) << 16) + zext(wCon3ToReg:2); wCon3ToReg = wCon3ToReg + 1; export tmp; }
+pstiExtRegVal3: wCon3ToReg is (data3=6 | data3=7) & wCon3ToReg { tmp:3 = (zext(UTP) << 16) + zext(wCon3ToReg:2); wCon3ToReg = wCon3ToReg + 1; export tmp; }
+
+with :(phase=1|phase=5|phase=6) {
 
 # bFpOffset
 bArgTbl2: @(data1,FP) is prefix=0x2 & data1 & FP { ptr:3 = segment(UTP,FP); ptr = ptr + sext(data1:1); export *:1 ptr; }
@@ -412,9 +476,9 @@ wArgTbl2: @(-predExtRegVal) is prefix=0xF1 & predExtRegVal { export *:2 predExtR
 bArgTbl2: @(pstiExtRegVal+) is prefix=0xF2 & pstiExtRegVal { export *:1 pstiExtRegVal; }
 wArgTbl2: @(pstiExtRegVal+) is prefix=0xF3 & pstiExtRegVal { export *:2 pstiExtRegVal; }
 
-} # end :(phase=1|phase=6)
+} # end :(phase=1|phase=5|phase=6)
 
-with :phase=2 {
+with :(phase=2|phase=5) {
 
 wArgTbl3: data1 is prefix=0xEA & data1 { tmp:2 = data1; export tmp; }
 wArgTbl3: data1 is prefix=0xFE & data1 { tmp:2 = zext(data1:1); export tmp; }
@@ -422,7 +486,7 @@ bArgTbl3: data1 is prefix=0xD0 & data1 { tmp:1 = data1:1; export tmp; }
 wArgTbl3: data1 is prefix=0xD1 & data1 { tmp:2 = zext(data1:1); export tmp; }
 bArgTbl3: data1 is prefix=0xE2 & data1 { tmp:1 = data1; export tmp; }
 
-} # end :phase=2
+} # end :(phase=2|phase=5)
 
 with :phase=3 {
 
@@ -433,13 +497,13 @@ cArgTbl4: cConToReg is prefix=0x10 & cConToReg { export cConToReg; }
 
 } # end :phase=3
 
-with :phase=4 {
+with :(phase=4|phase=5) {
 
 tbl5RelAddr: loc is simm8 [ loc = inst_next + simm8; ] { export *:1 loc; }
 
-} # end :phase=4
+} # end :(phase=4|phase=5)
 
-with :phase=7 {
+with :(phase=7|phase=5) {
 
 lArgTbl8: #data1 is prefix=0xEA & data1 & tbl8Mode=0 { tmp:4 = zext(data1:2); export tmp; }
 lArgTbl8: #data1 is prefix=0xFE & data1 & tbl8Mode=0 { tmp:4 = zext(data1:1); export tmp; }
@@ -453,7 +517,55 @@ lArgTbl8: #val is prefix=0xD0 & data1 & tbl8Mode=1 & data2 [ val = data1 + (data
 lArgTbl8: #val is prefix=0xD1 & data1 & tbl8Mode=1 & data2 [ val = data1 + (data2 << 16); ] { tmp:4 = zext(data1:1) + (zext(data2:2) << 16); export tmp; }
 lArgTbl8: #val is prefix=0xE2 & data1 & tbl8Mode=1 & data2 [ val = data1 + (data2 << 16); ] { tmp:4 = zext(data1:1) + (zext(data2:2) << 16); export tmp; }
 
-} # end :phase=7
+} # end :(phase=7|phase=5)
+
+with :phase=5 {
+
+wArgTbl62: #val is prefix2=0x0280 [ val = (data3 << 8) + data4; ] { tmp:2 = val; export tmp; }
+wArgTbl62: @(data4,extRegVal3) is prefix2=0x0290 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:2); export *:2 ptr; }
+wArgTbl62: @(data4,extRegVal3) is prefix2=0x02A0 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:1); export *:2 ptr; }
+wArgTbl62: @(extRegVal3) is prefix2=0x02B0 & extRegVal3 { export *:2 extRegVal3; }
+wArgTbl62: wCon3ToReg is prefix2=0x02C0 & wCon3ToReg { export wCon3ToReg; }
+wArgTbl62: data3 is prefix2=0x02E0 & data3 { ptr:3 = zext(data3:2); export *:2 ptr; }
+wArgTbl62: data3 is prefix2=0x02E1 & data3 { export *:2 data3; }
+
+bArgTbl62: #data4 is prefix2=0x0280 & data4 { tmp:1 = data4:1; export tmp; }
+bArgTbl62: @(data4,extRegVal3) is prefix2=0x0290 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:2); export *:1 ptr; }
+bArgTbl62: @(data4,extRegVal3) is prefix2=0x02A0 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:1); export *:1 ptr; }
+bArgTbl62: @(extRegVal3) is prefix2=0x02B0 & extRegVal3 { export *:1 extRegVal3; }
+bArgTbl62: bCon3ToReg is prefix2=0x02C0 & bCon3ToReg { export bCon3ToReg; }
+bArgTbl62: data3 is prefix2=0x02E0 & data3 { ptr:3 = zext(data3:2); export *:1 ptr; }
+bArgTbl62: data3 is prefix2=0x02E1 & data3 { export *:1 data3; }
+
+wArgTbl63: #val is prefix2=0x0380 [ val = (data3 << 8) + data4; ] { tmp:2 = val; export tmp; }
+wArgTbl63: @(data4,extRegVal3) is prefix2=0x0390 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:2); export *:2 ptr; }
+wArgTbl63: @(data4,extRegVal3) is prefix2=0x03A0 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:1); export *:2 ptr; }
+wArgTbl63: @(extRegVal3) is prefix2=0x03B0 & extRegVal3 { export *:2 extRegVal3; }
+wArgTbl63: wCon3ToReg is prefix2=0x03C0 & wCon3ToReg { export wCon3ToReg; }
+wArgTbl63: data3 is prefix2=0x03E0 & data3 { ptr:3 = zext(data3:2); export *:2 ptr; }
+wArgTbl63: data3 is prefix2=0x03E1 & data3 { export *:2 data3; }
+
+bArgTbl63: #data4 is prefix2=0x0380 & data4 { tmp:1 = data4:1; export tmp; }
+bArgTbl63: @(data4,extRegVal3) is prefix2=0x0390 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:2); export *:1 ptr; }
+bArgTbl63: @(data4,extRegVal3) is prefix2=0x03A0 & data4 & extRegVal3 { ptr:3 = extRegVal3 + sext(data4:1); export *:1 ptr; }
+bArgTbl63: @(extRegVal3) is prefix2=0x03B0 & extRegVal3 { export *:1 extRegVal3; }
+bArgTbl63: bCon3ToReg is prefix2=0x03C0 & bCon3ToReg { export bCon3ToReg; }
+bArgTbl63: data3 is prefix2=0x03E0 & data3 { ptr:3 = zext(data3:2); export *:1 ptr; }
+bArgTbl63: data3 is prefix2=0x03E1 & data3 { export *:1 data3; }
+
+wArgTbl67: @(-predExtRegVal3) is prefix2=0x0790 & predExtRegVal3 { export *:2 predExtRegVal3; }
+wArgTbl67: @(pstiExtRegVal3+) is prefix2=0x07A0 & pstiExtRegVal3 { export *:2 pstiExtRegVal3; }
+wArgTbl67: @(pstiExtRegVal3+) is prefix2=0x07A1 & pstiExtRegVal3 { export *:2 pstiExtRegVal3; }
+
+bArgTbl67: @(-predExtRegVal3) is prefix2=0x0790 & predExtRegVal3 { export *:1 predExtRegVal3; }
+bArgTbl67: @(pstiExtRegVal3+) is prefix2=0x07A0 & pstiExtRegVal3 { export *:1 pstiExtRegVal3; }
+bArgTbl67: @(pstiExtRegVal3+) is prefix2=0x07A1 & pstiExtRegVal3 { export *:1 pstiExtRegVal3; }
+
+lArgTbl68: @(-predExtRegVal3) is prefix2=0x0890 & predExtRegVal3 { export *:4 predExtRegVal3; }
+lArgTbl68: @(pstiExtRegVal3+) is prefix2=0x08A0 & pstiExtRegVal3 { export *:4 pstiExtRegVal3; }
+lArgTbl68: @(pstiExtRegVal3+) is prefix2=0x08A1 & pstiExtRegVal3 { export *:4 pstiExtRegVal3; }
+
+} # end :phase=5
 
 ####### END OP Preludes
 
@@ -1710,7 +1822,44 @@ with :phase=4 {
 } # End with :phase=4
 
 ###### TABLE 6
-# TODO: Table 6 is a target of all the other tables. Skipping for now
+with :phase=5 {
+
+:XOR.W wArgTbl2,wArgTbl62,wReg5_3 is (op0_4=0 & opHalf4_1=0 & wReg5_3) ... & wArgTbl62 & wArgTbl2 {
+	wReg5_3 = wArgTbl2 ^ wArgTbl62;
+	zeroFlags(wReg5_3);
+}
+
+:XOR.B bArgTbl2,bArgTbl62,bReg5_3 is (op0_4=0 & opHalf4_1=0 & bReg5_3) ... & bArgTbl62 & bArgTbl2 {
+	bReg5_3 = bArgTbl2 ^ bArgTbl62;
+	zeroFlags(bReg5_3);
+}
+
+:XOR.W wArgTbl3,wArgTbl63,wReg5_3 is (op0_4=0 & opHalf4_1=0 & wReg5_3) ... & wArgTbl63 & wArgTbl3 {
+	wReg5_3 = wArgTbl3 ^ wArgTbl63;
+	zeroFlags(wReg5_3);
+}
+
+:XOR.B bArgTbl3,bArgTbl63,bReg5_3 is (op0_4=0 & opHalf4_1=0 & bReg5_3) ... & bArgTbl63 & bArgTbl3 {
+	bReg5_3 = bArgTbl3 ^ bArgTbl63;
+	zeroFlags(bReg5_3);
+}
+
+:XOR.W wArgTbl2,wArgTbl67,wReg5_3 is (op0_4=0 & opHalf4_1=0 & wReg5_3) ... & wArgTbl67 & wArgTbl2 {
+	wReg5_3 = wArgTbl2 ^ wArgTbl67;
+	zeroFlags(wReg5_3);
+}
+
+:XOR.B bArgTbl2,bArgTbl67,bReg5_3 is (op0_4=0 & opHalf4_1=0 & bReg5_3) ... & bArgTbl67 & bArgTbl2 {
+	bReg5_3 = bArgTbl2 ^ bArgTbl67;
+	zeroFlags(bReg5_3);
+}
+
+:XOR.L lArgTbl8,lArgTbl68,lReg5_3 is (op0_4=0 & opHalf4_1=0 & lReg5_3) ... & lArgTbl68 & lArgTbl8 {
+	lReg5_3 = lArgTbl8 ^ lArgTbl68;
+	zeroFlags(lReg5_3);
+}
+
+} # End with :phase=5
 
 ###### TABLE 7
 with :phase=6 {
