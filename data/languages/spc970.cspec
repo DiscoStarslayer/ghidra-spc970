@@ -10,12 +10,15 @@
     <range space="ram"/>
     <range space="io"/>
   </global>
-  <stackpointer register="SP" space="ram"/>
+  <stackpointer register="xSP" space="ram" growth="negative"/>
+  <returnaddress>
+    <varnode space="stack" offset="0" size="2"/>
+  </returnaddress>
   <default_proto>
-    <prototype name="__asm" extrapop="0" stackshift="0">
+    <prototype name="__asm" extrapop="4" stackshift="4">
       <input>
         <pentry minsize="1" maxsize="500" align="2">
-          <addr offset="0" space="stack"/>
+          <addr offset="4" space="stack"/>
         </pentry>
       </input>
       <output>
@@ -30,18 +33,21 @@
         </pentry>
       </output>
       <unaffected>
-        <register name="SP"/>
-        <register name="FP"/>
+        <register name="xSP"/>
+        <register name="xFP"/>
         <register name="EP"/>
         <register name="RW2"/>
         <register name="RW3"/>
       </unaffected>
+      <likelytrash>
+      	<register name="CP"/>
+      </likelytrash>
     </prototype>
   </default_proto>
-  <prototype name="__sys" extrapop="0" stackshift="0" strategy="register">
+  <prototype name="__sys" extrapop="4" stackshift="4" strategy="register">
       <input>
         <pentry minsize="1" maxsize="500" align="2">
-          <addr offset="2" space="stack"/>
+          <addr offset="4" space="stack"/>
         </pentry>
       </input>
       <output>
@@ -56,8 +62,8 @@
         </pentry>
       </output>
       <unaffected>
-        <register name="SP"/>
-        <register name="FP"/>
+        <register name="xSP"/>
+        <register name="xFP"/>
         <register name="RW2"/>
         <register name="RW3"/>
         <register name="RW4"/>
@@ -65,5 +71,8 @@
         <register name="EP"/>
         <register name="DP"/>
       </unaffected>
+      <likelytrash>
+      	<register name="CP"/>
+      </likelytrash>
   </prototype>
 </compiler_spec>
