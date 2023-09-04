@@ -277,6 +277,7 @@ cpAddr16: loc is imm16 [ loc = (inst_next & 0xFF0000) + imm16; ] { export *:1 lo
 immAddr8: loc is imm8 [ loc = 0 + imm8; ] { export *[io]:1 loc; }
 immAddr24: imm24 is imm24 { export *:1 imm24; }
 
+jrelAddr8: loc is simm8 [ loc = inst_next + simm8; ] { export *:1 loc; }
 relAddr8: loc is simm8 [ loc = inst_next + simm8; ] { export *:1 loc; }
 
 tjsrAddr3: loc is opData5_3 [ loc = inst_next + opData5_3; ] { export *:1 loc; }
@@ -335,10 +336,10 @@ regIndirect: pReg5_3 is (opData5_3=7) & pReg5_3 { tmp:3 = pReg5_3; export *:1 tm
 # Table 5 preludes
 :^instruction is phase=0 & op0_8=0xF3												; instruction [ prefix=0xF3; phase=4; ] {}
 # TODO: Hack, using undefined prefixes to signal entry point is tbl5 when pointing to tbl2
-:^instruction is phase=4 & op0_4=0x9 & opHalf4_1=0 & opData5_3						; instruction [ prefix=0xF0; phase=1; data1=opData5_3; ] {}
-:^instruction is phase=4 & op0_4=0x9 & opHalf4_1=1 & opData5_3						; instruction [ prefix=0xF1; phase=1; data1=opData5_3; ] {}
-:^instruction is phase=4 & op0_4=0xA & opHalf4_1=0 & opData5_3						; instruction [ prefix=0xF2; phase=1; data1=opData5_3; ] {}
-:^instruction is phase=4 & op0_4=0xA & opHalf4_1=1 & opData5_3						; instruction [ prefix=0xF3; phase=1; data1=opData5_3; ] {}
+:^instruction is phase=4 & op0_4=0x9 & opHalf4_1=0 & opData5_3						; instruction [ prefix=0xF0; phase=1; data1=opData5_3; tbl2Width=0; ] {}
+:^instruction is phase=4 & op0_4=0x9 & opHalf4_1=1 & opData5_3						; instruction [ prefix=0xF1; phase=1; data1=opData5_3; tbl2Width=1; ] {}
+:^instruction is phase=4 & op0_4=0xA & opHalf4_1=0 & opData5_3						; instruction [ prefix=0xF2; phase=1; data1=opData5_3; tbl2Width=0; ] {}
+:^instruction is phase=4 & op0_4=0xA & opHalf4_1=1 & opData5_3						; instruction [ prefix=0xF4; phase=1; data1=opData5_3; tbl2Width=1; ] {}
 
 # Table 7 preludes
 # Table 7 only reachable through table 2
@@ -390,6 +391,8 @@ wConToReg: RW2 is data1=2 & RW2 { export RW2; }
 wConToReg: RW3 is data1=3 & RW3 { export RW3; }
 wConToReg: RW4 is data1=4 & RW4 { export RW4; }
 wConToReg: RW5 is data1=5 & RW5 { export RW5; }
+wConToReg: wFP is data1=6 & wFP { export wFP; }
+wConToReg: wSP is data1=7 & wSP { export wSP; }
 pConToReg: xFP is data1=6 & xFP { export xFP; }
 pConToReg: xSP is data1=7 & xSP { export xSP; }
 
@@ -413,6 +416,8 @@ wCon3ToReg: RW2 is data3=2 & RW2 { export RW2; }
 wCon3ToReg: RW3 is data3=3 & RW3 { export RW3; }
 wCon3ToReg: RW4 is data3=4 & RW4 { export RW4; }
 wCon3ToReg: RW5 is data3=5 & RW5 { export RW5; }
+wCon3ToReg: wFP is data3=6 & wFP { export wFP; }
+wCon3ToReg: wSP is data3=7 & wSP { export wSP; }
 pCon3ToReg: xFP is data3=6 & xFP { export xFP; }
 pCon3ToReg: xSP is data3=7 & xSP { export xSP; }
 
@@ -507,7 +512,7 @@ wArgTbl2: @(xSP+) is prefix=0xEF & xSP { xSP = xSP + 2; export *:2 xSP; }
 bArgTbl2: @(-predExtRegVal) is prefix=0xF0 & predExtRegVal { export *:1 predExtRegVal; }
 wArgTbl2: @(-predExtRegVal) is prefix=0xF1 & predExtRegVal { export *:2 predExtRegVal; }
 bArgTbl2: @(pstiExtRegVal+) is prefix=0xF2 & pstiExtRegVal { export *:1 pstiExtRegVal; }
-wArgTbl2: @(pstiExtRegVal+) is prefix=0xF3 & pstiExtRegVal { export *:2 pstiExtRegVal; }
+wArgTbl2: @(pstiExtRegVal+) is prefix=0xF4 & pstiExtRegVal { export *:2 pstiExtRegVal; }
 
 } # end :(phase=1|phase=5|phase=6)
 
@@ -687,6 +692,10 @@ ldmL0: ldmL1		is ldmL1								{ build ldmL1; }
 
 with :phase=0 {
 
+:B^cc relAddr8 is op0_4=0x0 & opMode4_4=0x0 & cc; relAddr8 {
+	goto relAddr8;
+}
+
 :B^cc relAddr8 is op0_4=0x0 & cc; relAddr8 {
 	if (cc) goto relAddr8;
 }
@@ -747,7 +756,7 @@ with :phase=0 {
 }
 
 :JMP cpAddr16 is op0_8=0xE5; cpAddr16 {
-	call cpAddr16;
+	goto cpAddr16;
 }
 
 :LINK xFP,immVal8 is op0_8=0xE6 & xFP; immVal8 {
@@ -844,9 +853,6 @@ with :phase=0 {
 }
 
 :NOP is op0_8=0xFF {}
-
-# TODO: These instructions may be specific to puppy firm? or debug?
-:UNK_TBL1 is op0_8=0xF4 {}
 
 } # end phase=0
 
@@ -1055,11 +1061,13 @@ with :phase=1 {
 }
 
 :MOV.G0.B bArgTbl2,val is (op0_4=0x8 & opHalf4_1=1 & opData5_3; imm8) ... & bArgTbl2 & tbl2Width=0 [ val = (opData5_3 << 8) + imm8; ] {
-	val = bArgTbl2;
+	ptr:3 = val:3;
+	*:1 ptr = bArgTbl2;
 }
 
 :MOV.G0.W wArgTbl2,val is (op0_4=0x8 & opHalf4_1=1 & opData5_3; imm8) ... & wArgTbl2 & tbl2Width=1 [ val = (opData5_3 << 8) + imm8; ] {
-	val = wArgTbl2;
+	ptr:3 = val:3;
+	*:2 ptr = wArgTbl2;
 }
 
 :MOV.G0.B bArgTbl2,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & indRegVal; simm16) ... & bArgTbl2 & tbl2Width=0 {
@@ -1301,9 +1309,6 @@ with :phase=1 {
 	zeroFlags(wArgTbl2);
 }
 
-# TODO: These instructions may be specific to puppy firm? or debug?
-:UNK_TBL2 is op0_8=0xF9 {}
-
 } # End with :phase=1
 
 ####### TABLE 3
@@ -1452,9 +1457,9 @@ with :phase=2 {
 	zeroFlags(bReg5_3);
 }
 
-:ADD.GR.W #wArgTbl3,pReg5_3 is (op0_4=0x6 & opHalf4_1=0 & opData5_3=7 & pReg5_3) ... & wArgTbl3 {
-	addFlags(zext(wArgTbl3), pReg5_3);
-	pReg5_3 = zext(wArgTbl3) + pReg5_3;
+:ADD.GR.W #bArgTbl3,pReg5_3 is (op0_4=0x6 & opHalf4_1=0 & opData5_3=7 & pReg5_3) ... & bArgTbl3 {
+	addFlags(zext(bArgTbl3), pReg5_3);
+	pReg5_3 = zext(bArgTbl3) + pReg5_3;
 	zeroFlags(pReg5_3);
 }
 
@@ -1462,6 +1467,12 @@ with :phase=2 {
 	addFlags(wArgTbl3, wReg5_3);
 	wReg5_3 = wArgTbl3 + wReg5_3;
 	zeroFlags(wReg5_3);
+}
+
+:ADD.GR.W #wArgTbl3,pReg5_3 is (op0_4=0x6 & opHalf4_1=0 & opData5_3=7 & pReg5_3) ... & wArgTbl3 {
+	addFlags(zext(wArgTbl3), pReg5_3);
+	pReg5_3 = zext(wArgTbl3) + pReg5_3;
+	zeroFlags(pReg5_3);
 }
 
 :ADD.ID.B #bArgTbl3,val is (op0_4=0x6 & opHalf4_1=1 & opData5_3; imm8) ... & bArgTbl3 [ val = (opData5_3 << 8) + imm8; ] {
@@ -1846,6 +1857,10 @@ with :phase=3 {
 
 with :phase=4 {
 
+:B^cc tbl5RelAddr is (op0_4=0x0 & opMode4_4=0x0 & cc; tbl5RelAddr) ... {
+	goto tbl5RelAddr;
+}
+
 :B^cc tbl5RelAddr is (op0_4=0x0 & cc; tbl5RelAddr) ... {
 	if (cc) goto tbl5RelAddr;
 }
@@ -1899,7 +1914,7 @@ with :phase=4 {
 ###### TABLE 6
 with :phase=5 {
 
-macro tbl6Xor (a,b,c) {
+macro tbl6Xor (c,a,b) {
 	c = a ^ b;
 	zeroFlags(c);
 }
@@ -1932,7 +1947,7 @@ macro tbl6Xor (a,b,c) {
 	tbl6Xor(lReg5_3, lArgTbl8, lArgTbl68);
 }
 
-macro tbl6Or (a,b,c) {
+macro tbl6Or (c,a,b) {
 	c = a | b;
 	zeroFlags(c);
 }
@@ -1965,7 +1980,7 @@ macro tbl6Or (a,b,c) {
 	tbl6Or(lReg5_3, lArgTbl8, lArgTbl68);
 }
 
-macro tbl6And (a,b,c) {
+macro tbl6And (c,a,b) {
 	c = a & b;
 	zeroFlags(c);
 }
@@ -1998,7 +2013,7 @@ macro tbl6And (a,b,c) {
 	tbl6And(lReg5_3, lArgTbl8, lArgTbl68);
 }
 
-macro tbl6Subx (a,b,c) {
+macro tbl6Subx (c,a,b) {
 	subFlags(a,b);
 	c = a - b - zext(X);
 	zeroFlags(c);
@@ -2032,7 +2047,7 @@ macro tbl6Subx (a,b,c) {
 	tbl6Subx(lReg5_3, lArgTbl8, lArgTbl68);
 }
 
-macro tbl6Addx (a,b,c) {
+macro tbl6Addx (c,a,b) {
 	addFlags(a,b);
 	c = a + b + zext(X);
 	zeroFlags(c);
@@ -2066,7 +2081,7 @@ macro tbl6Addx (a,b,c) {
 	tbl6Addx(lReg5_3, lArgTbl8, lArgTbl68);
 }
 
-macro tbl6Sub (a,b,c) {
+macro tbl6Sub (c,a,b) {
 	subFlags(a,b);
 	c = a - b;
 	zeroFlags(c);
@@ -2100,7 +2115,7 @@ macro tbl6Sub (a,b,c) {
 	tbl6Sub(lReg5_3, lArgTbl8, lArgTbl68);
 }
 
-macro tbl6Add (a,b,c) {
+macro tbl6Add (c,a,b) {
 	addFlags(a,b);
 	c = a + b;
 	zeroFlags(c);
@@ -2485,9 +2500,6 @@ macro tbl6Dcmp (a,b) {
 :CMP.G2.L lArgTbl8,lArgTbl68 is (op0_8=0xFF) ... & lArgTbl68 & lArgTbl8 {
 	tbl6Dcmp(lArgTbl8, lArgTbl68);
 }
-
-# TODO: These instructions may be specific to puppy firm? or debug?
-:UNK_TBL6 is op0_8=0xAE {}
 
 } # End with :phase=5
 
