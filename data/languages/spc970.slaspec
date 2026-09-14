@@ -12,6 +12,7 @@ define register offset=0x00 size=1 [ RB0 _ RB1 _ RB2 _ RB3 _ RB4 _ RB5 _ RB6 _ R
 define register offset=0x00 size=2 [ RW0   RW1   RW2   RW3   RW4   RW5   _     _     ];
 define register offset=0x00 size=2 [ _     _     _     _     _     _     FP    SP    ];
 define register offset=0x00 size=4 [ RL0         RL2         RL4         RL6         ];
+define register offset=0x02 size=4 [ RL1         RL3         RL5         RL7         ];
 
 define register offset=0x30 size=3 [ xSP   xFP ];
 define register offset=0x30 size=2 [ wSP ];
@@ -20,6 +21,7 @@ define register offset=0x33 size=2 [ wFP ];
 define register offset=0x33 size=1 [ bFP ];
 
 # PSW  Processor Status Word
+# CCR  Condition Code Register (low byte of PSW)
 # PC   Program Counter
 # SSP  System Stack Pointer
 # CP   Code Page Register
@@ -29,6 +31,7 @@ define register offset=0x33 size=1 [ bFP ];
 # STP  System Stack Page Register
 
 define register offset=0x10 size=2 [ PSW PC  SSP USP _  _  _  _   _   ];
+define register offset=0x10 size=1 [ CCR ];
 define register offset=0x10 size=1 [ _ _ _ _ _ _ _ _ CP DP EP UTP STP ];
 
 # Ghidra bit range selector index 0 is LSB
@@ -71,19 +74,19 @@ define register offset=0x40 size=2 [
 
 define register offset=0x1000 size=32 contextreg;
 define context contextreg
-	phase		= (0,3)
-	tbl8Mode	= (4,6)
-	tbl2Width	= (7,7)
-	prefix		= (8,15)
-	data1		= (16,39)
-	sdata1		= (16,39) signed
-	data2		= (40,55)
-	sdata2		= (40,55) signed
-	data3		= (56,79)
-	sdata3		= (56,79) signed
-	prefix2		= (80,95)
-	data4		= (96,111)
-	sdata4		= (96,111) signed
+	phase		= (0,3) noflow
+	tbl8Mode	= (4,6) noflow
+	tbl2Width	= (7,7) noflow
+	prefix		= (8,15) noflow
+	data1		= (16,39) noflow
+	sdata1		= (16,39) signed noflow
+	data2		= (40,55) noflow
+	sdata2		= (40,55) signed noflow
+	data3		= (56,79) noflow
+	sdata3		= (56,79) signed noflow
+	prefix2		= (80,95) noflow
+	data4		= (96,111) noflow
+	sdata4		= (96,111) signed noflow
 ;
 
 define token opbyte (8)
@@ -160,7 +163,7 @@ attach variables [ xwReg5_3 ] [ RW0 RW1 RW2 RW3 RW4 RW5 FP  SP  ];
 attach variables [ pReg5_3  ] [ _   _   _   _   _   _   xFP xSP ];
 attach variables [ wpReg5_3 ] [ _   _   _   _   _   _   wFP wSP ];
 attach variables [ bpReg5_3 ] [ _   _   _   _   _   _   bFP bSP ];
-attach variables [ lReg5_3  ] [ RL0 _   RL2 _   RL4 _   RL6 _   ];
+attach variables [ lReg5_3  ] [ RL0 RL1 RL2 RL3 RL4 RL5 RL6 RL7 ];
 attach variables [ cReg5_3  ] [ UTP DP  EP  STP _   _   IM  BCR ];
 attach variables [ cwReg5_3 ] [ _   _   _   _   _   PSW _   _   ];
 
@@ -213,6 +216,11 @@ macro subFlags(op1,op2) {
 	V = sborrow(op1,op2);
 }
 
+macro negFlags(op) {
+	X = op != 0;
+	V = sborrow(0, op);
+}
+
 macro zeroFlags(result) {
 	Z = result == 0;
 	M = result s< 0;
@@ -241,25 +249,33 @@ macro pop8(val8) {
 
 macro syncFlags() {
 	PSW = 0;
-	PSW = PSW & (zext(IM & 0x7) << 13);
-	PSW = PSW & (zext(BCR & 0x1F) << 8);
-	PSW = PSW & (zext(S & 0x1) << 7);
-	PSW = PSW & (zext(I & 0x1) << 6);
-	PSW = PSW & (zext(M & 0x1) << 3);
-	PSW = PSW & (zext(V & 0x1) << 2);
-	PSW = PSW & (zext(X & 0x1) << 1);
-	PSW = PSW & zext(Z & 0x1);
+	PSW = PSW | (zext(IM & 0x7) << 13);
+	PSW = PSW | (zext(BCR & 0x1F) << 8);
+	PSW = PSW | (zext(S & 0x1) << 7);
+	PSW = PSW | (zext(I & 0x1) << 6);
+	PSW = PSW | (zext(M & 0x1) << 3);
+	PSW = PSW | (zext(V & 0x1) << 2);
+	PSW = PSW | (zext(X & 0x1) << 1);
+	PSW = PSW | zext(Z & 0x1);
 }
 
 macro syncPSW() {
-	IM = (PSW >> 13) & 0x7;
-	BCR = (PSW >> 8) & 0x1F;
-	S = (PSW >> 7) & 0x1;
-	I = (PSW >> 6) & 0x1;
-	M = (PSW >> 3) & 0x1;
-	V = (PSW >> 2) & 0x1;
-	X = (PSW >> 1) & 0x1;
-	Z = PSW & 0x1;
+	local value:2 = (PSW >> 13) & 0x7;
+	IM = value:1;
+	value = (PSW >> 8) & 0x1F;
+	BCR = value:1;
+	value = (PSW >> 7) & 0x1;
+	S = value:1;
+	value = (PSW >> 6) & 0x1;
+	I = value:1;
+	value = (PSW >> 3) & 0x1;
+	M = value:1;
+	value = (PSW >> 2) & 0x1;
+	V = value:1;
+	value = (PSW >> 1) & 0x1;
+	X = value:1;
+	value = PSW & 0x1;
+	Z = value:1;
 }
 
 wReg5_3: wpReg5_3 is (opData5_3=6 | opData5_3=7) & wpReg5_3 { export wpReg5_3; }
@@ -268,19 +284,21 @@ wReg5_3: xwReg5_3 is xwReg5_3 { export xwReg5_3; }
 bReg5_3: bpReg5_3 is (opData5_3=6 | opData5_3=7) & bpReg5_3 { export bpReg5_3; }
 bReg5_3: xbReg5_3 is xbReg5_3 { export xbReg5_3; }
 
+ccReg: CCR is opData5_3=4 & CCR { export CCR; }
+
 immVal8: #imm8 is imm8 { local tmp:1 = imm8; export tmp; }
 immVal16: #imm16 is imm16 { local tmp:2 = imm16; export tmp; }
 
 # Code Pointer (CP) is used as high value of PC, use this to our advantage
-cpAddr16: loc is imm16 [ loc = (inst_next & 0xFF0000) + imm16; ] { export *:1 loc; }
+cpAddr16: loc is imm16 [ loc = (inst_next & 0xFF0000) + imm16; ] { export *:3 loc; }
 
 immAddr8: loc is imm8 [ loc = 0 + imm8; ] { export *[io]:1 loc; }
-immAddr24: imm24 is imm24 { export *:1 imm24; }
+immAddr24: imm24 is imm24 { export *:3 imm24; }
 
-jrelAddr8: loc is simm8 [ loc = inst_next + simm8; ] { export *:1 loc; }
-relAddr8: loc is simm8 [ loc = inst_next + simm8; ] { export *:1 loc; }
+jrelAddr8: loc is simm8 [ loc = inst_next + simm8; ] { export *:3 loc; }
+relAddr8: loc is simm8 [ loc = inst_next + simm8; ] { export *:3 loc; }
 
-tjsrAddr3: loc is opData5_3 [ loc = inst_next + opData5_3; ] { export *:1 loc; }
+tjsrAddr3: loc is opData5_3 [ loc = inst_next + opData5_3; ] { export *:3 loc; }
 
 bIdx3: opData5_3 is opData5_3 {
 	local tmp:1 = opData5_3;
@@ -291,13 +309,19 @@ bAddrAbs11: val is opData5_3; imm8 [ val = (opData5_3 << 8) + imm8; ] { tmp:3 = 
 wAddrAbs11: val is opData5_3; imm8 [ val = (opData5_3 << 8) + imm8; ] { tmp:3 = zext(val:2); export *:2 tmp; }
 bAddrAbs16: val is imm16 [ val = (DP << 16) + imm16; ] { export *:1 val; }
 wAddrAbs16: val is imm16 [ val = (DP << 16) + imm16; ] { export *:2 val; }
-bAddrAbs24: immAddr24 is immAddr24 { export *:1 immAddr24; }
-wAddrAbs24: immAddr24 is immAddr24 { export *:2 immAddr24; }
+bAddrAbs24: imm24 is imm24 { export *:1 imm24; }
+wAddrAbs24: imm24 is imm24 { export *:2 imm24; }
 
 regIndirect: wReg5_3 is (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3) & wReg5_3 { tmp:3 = ((zext(DP) << 16) + zext(wReg5_3)); export *:1 tmp; }
 regIndirect: wReg5_3 is (opData5_3=4 | opData5_3=5) & wReg5_3 { tmp:3 = ((zext(EP) << 16) + zext(wReg5_3)); export *:1 tmp; }
 regIndirect: pReg5_3 is (opData5_3=6) & pReg5_3 { tmp:3 = pReg5_3; export *:1 tmp; }
 regIndirect: pReg5_3 is (opData5_3=7) & pReg5_3 { tmp:3 = pReg5_3; export *:1 tmp; }
+
+# Unlike data indirection, indirect branches export the computed address itself.
+jmpRegIndirect: wReg5_3 is (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3) & wReg5_3 { tmp:3 = ((zext(DP) << 16) + zext(wReg5_3)); export tmp; }
+jmpRegIndirect: wReg5_3 is (opData5_3=4 | opData5_3=5) & wReg5_3 { tmp:3 = ((zext(EP) << 16) + zext(wReg5_3)); export tmp; }
+jmpRegIndirect: pReg5_3 is (opData5_3=6) & pReg5_3 { tmp:3 = pReg5_3; export tmp; }
+jmpRegIndirect: pReg5_3 is (opData5_3=7) & pReg5_3 { tmp:3 = pReg5_3; export tmp; }
 
 ####### OP Preludes
 # Preludes are described as instruction prefixes in context register
@@ -397,9 +421,13 @@ pConToReg: xFP is data1=6 & xFP { export xFP; }
 pConToReg: xSP is data1=7 & xSP { export xSP; }
 
 lConToReg: RL0 is data1=0 & RL0 { export RL0; }
+lConToReg: RL1 is data1=1 & RL1 { export RL1; }
 lConToReg: RL2 is data1=2 & RL2 { export RL2; }
+lConToReg: RL3 is data1=3 & RL3 { export RL3; }
 lConToReg: RL4 is data1=4 & RL4 { export RL4; }
+lConToReg: RL5 is data1=5 & RL5 { export RL5; }
 lConToReg: RL6 is data1=6 & RL6 { export RL6; }
+lConToReg: RL7 is data1=7 & RL7 { export RL7; }
 
 bCon3ToReg: RB0 is data3=0 & RB0 { export RB0; }
 bCon3ToReg: RB1 is data3=1 & RB1 { export RB1; }
@@ -422,16 +450,20 @@ pCon3ToReg: xFP is data3=6 & xFP { export xFP; }
 pCon3ToReg: xSP is data3=7 & xSP { export xSP; }
 
 lCon3ToReg: RL0 is data3=0 & RL0 { export RL0; }
+lCon3ToReg: RL1 is data3=1 & RL1 { export RL1; }
 lCon3ToReg: RL2 is data3=2 & RL2 { export RL2; }
+lCon3ToReg: RL3 is data3=3 & RL3 { export RL3; }
 lCon3ToReg: RL4 is data3=4 & RL4 { export RL4; }
+lCon3ToReg: RL5 is data3=5 & RL5 { export RL5; }
 lCon3ToReg: RL6 is data3=6 & RL6 { export RL6; }
+lCon3ToReg: RL7 is data3=7 & RL7 { export RL7; }
 
 cConToReg: UTP is data1=0 & UTP { export UTP; }
 cConToReg: DP  is data1=1 & DP  { export DP ; }
 cConToReg: EP  is data1=2 & EP  { export EP ; }
 cConToReg: STP is data1=3 & STP { export STP; }
-# TODO: These are unconfirmed
-# cConToReg: SSP is data1=4 & SSP { export SSP; }
+cConToReg: CCR is data1=4 & CCR { export CCR; }
+# TODO: This is unconfirmed
 # cConToReg: USP is data1=5 & USP { export USP; }
 cConToReg: IM  is data1=6 & IM  { export IM ; }
 cConToReg: BCR is data1=7 & BCR { export BCR; }
@@ -470,6 +502,25 @@ pstiExtRegVal3: wCon3ToReg is (data3=0 | data3=1 | data3=2 | data3=3) & wCon3ToR
 pstiExtRegVal3: wCon3ToReg is (data3=4 | data3=5) & wCon3ToReg { tmp:3 = ((zext(EP) << 16) + zext(wCon3ToReg)); wCon3ToReg = wCon3ToReg + 1; export tmp; }
 pstiExtRegVal3: pCon3ToReg is (data3=6) & pCon3ToReg { tmp:3 = pCon3ToReg; pCon3ToReg = pCon3ToReg + 1; export tmp; }
 pstiExtRegVal3: pCon3ToReg is (data3=7) & pCon3ToReg { tmp:3 = pCon3ToReg; pCon3ToReg = pCon3ToReg + 1; export tmp; }
+
+bAddrTbl2: @(sdata1,xFP) is prefix=0x2 & sdata1 & xFP { ptr:3 = xFP + sext(sdata1:1); tmp:2 = ptr:2; export tmp; }
+wAddrTbl2: @(sdata1,xFP) is prefix=0x3 & sdata1 & xFP { ptr:3 = xFP + sext(sdata1:1); tmp:2 = ptr:2; export tmp; }
+bAddrTbl2: val is prefix=0x80 & data1 & data2 [ val = (data1 << 8) + data2; ] { tmp:2 = val:2; export tmp; }
+wAddrTbl2: val is prefix=0x81 & data1 & data2 [ val = (data1 << 8) + data2; ] { tmp:2 = val:2; export tmp; }
+bAddrTbl2: @(sdata2,extRegVal) is prefix=0x90 & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:2); tmp:2 = ptr:2; export tmp; }
+wAddrTbl2: @(sdata2,extRegVal) is prefix=0x91 & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:2); tmp:2 = ptr:2; export tmp; }
+bAddrTbl2: @(sdata2,extRegVal) is prefix=0xA0 & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:1); tmp:2 = ptr:2; export tmp; }
+wAddrTbl2: @(sdata2,extRegVal) is prefix=0xA1 & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:1); tmp:2 = ptr:2; export tmp; }
+bAddrTbl2: @(extRegVal) is prefix=0xB0 & extRegVal { tmp:2 = extRegVal:2; export tmp; }
+wAddrTbl2: @(extRegVal) is prefix=0xB1 & extRegVal { tmp:2 = extRegVal:2; export tmp; }
+bAddrTbl2: val is prefix=0xE0 & data1 [ val = (DP << 16) + data1; ] { tmp:2 = data1:2; export tmp; }
+wAddrTbl2: val is prefix=0xE8 & data1 [ val = (DP << 16) + data1; ] { tmp:2 = data1:2; export tmp; }
+bAddrTbl2: data1 is prefix=0xE1 & data1 { tmp:2 = data1:2; export tmp; }
+wAddrTbl2: data1 is prefix=0xE9 & data1 { tmp:2 = data1:2; export tmp; }
+bAddrTbl2: @(-predExtRegVal) is prefix=0xF0 & predExtRegVal { tmp:2 = predExtRegVal:2; export tmp; }
+wAddrTbl2: @(-predExtRegVal) is prefix=0xF1 & predExtRegVal { tmp:2 = predExtRegVal:2; export tmp; }
+bAddrTbl2: @(pstiExtRegVal+) is prefix=0xF2 & pstiExtRegVal { tmp:2 = pstiExtRegVal:2; export tmp; }
+wAddrTbl2: @(pstiExtRegVal+) is prefix=0xF4 & pstiExtRegVal { tmp:2 = pstiExtRegVal:2; export tmp; }
 
 with :(phase=1|phase=5|phase=6) {
 
@@ -514,6 +565,19 @@ wArgTbl2: @(-predExtRegVal) is prefix=0xF1 & predExtRegVal { export *:2 predExtR
 bArgTbl2: @(pstiExtRegVal+) is prefix=0xF2 & pstiExtRegVal { export *:1 pstiExtRegVal; }
 wArgTbl2: @(pstiExtRegVal+) is prefix=0xF4 & pstiExtRegVal { export *:2 pstiExtRegVal; }
 
+# Table 7 operations use a long operand regardless of the byte/word prefix bit.
+lArgTbl2: @(sdata1,xFP) is (prefix=0x2 | prefix=0x3) & sdata1 & xFP { ptr:3 = xFP + sext(sdata1:1); export *:4 ptr; }
+lArgTbl2: val is (prefix=0x80 | prefix=0x81) & data1 & data2 [ val = (data1 << 8) + data2; ] { tmp:3 = zext(val:2); export *:4 tmp; }
+lArgTbl2: @(sdata2,extRegVal) is (prefix=0x90 | prefix=0x91) & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:2); export *:4 ptr; }
+lArgTbl2: @(sdata2,extRegVal) is (prefix=0xA0 | prefix=0xA1) & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:1); export *:4 ptr; }
+lArgTbl2: @(extRegVal) is (prefix=0xB0 | prefix=0xB1) & extRegVal { export *:4 extRegVal; }
+lArgTbl2: lConToReg is (prefix=0xC0 | prefix=0xC1) & lConToReg { export lConToReg; }
+lArgTbl2: val is (prefix=0xE0 | prefix=0xE8) & data1 [ val = (DP << 16) + data1; ] { ptr:3 = (zext(DP) << 16) + zext(data1:2); export *:4 ptr; }
+lArgTbl2: data1 is (prefix=0xE1 | prefix=0xE9) & data1 { export *:4 data1; }
+lArgTbl2: @(xSP+) is (prefix=0xE7 | prefix=0xEF) & xSP { xSP = xSP + 4; export *:4 xSP; }
+lArgTbl2: @(-predExtRegVal) is (prefix=0xF0 | prefix=0xF1) & predExtRegVal { export *:4 predExtRegVal; }
+lArgTbl2: @(pstiExtRegVal+) is (prefix=0xF2 | prefix=0xF4) & pstiExtRegVal { export *:4 pstiExtRegVal; }
+
 } # end :(phase=1|phase=5|phase=6)
 
 with :(phase=2|phase=5) {
@@ -537,7 +601,7 @@ cArgTbl4: cConToReg is prefix=0x10 & cConToReg { export cConToReg; }
 
 with :(phase=4|phase=5) {
 
-tbl5RelAddr: loc is simm16 [ loc = inst_next + simm16; ] { export *:1 loc; }
+tbl5RelAddr: loc is simm16 [ loc = inst_next + simm16; ] { export *:3 loc; }
 
 } # end :(phase=4|phase=5)
 
@@ -701,7 +765,9 @@ with :phase=0 {
 }
 
 :TJSR tjsrAddr3 is op0_4=0x1 & opHalf4_1=0x1 & tjsrAddr3 {
-	goto tjsrAddr3;
+	local ret:2 = inst_next;
+	push16(ret);
+	call tjsrAddr3;
 }
 
 # Maybe use bit accessors instead?
@@ -726,7 +792,7 @@ with :phase=0 {
 :BBS immAddr8"."bIdx3, relAddr8 is op0_4=0x5 & opHalf4_1=0x1 & bIdx3; immAddr8; relAddr8 {
 	local tmp:1 = 1 << bIdx3;
 	local result:1 = immAddr8 & tmp;
-	if (result == 1) goto relAddr8;
+	if (result != 0) goto relAddr8;
 }
 
 :MOV.IR.B immVal8,bReg5_3 is op0_4=0x6 & opHalf4_1=0x0 & bReg5_3; immVal8 {
@@ -803,9 +869,10 @@ with :phase=0 {
 }
 
 :REIT is op0_8=0xF5 {
-	# Is PSW restored from stack?
 	pop16(CP);
 	pop16(PC);
+	pop16(PSW);
+	syncPSW();
 	
 	local hi:3 = zext(CP);
 	ptr:3 = (hi << 16) + zext(PC);
@@ -1050,14 +1117,14 @@ with :phase=1 {
 :BST bArgTbl2"."bIdx3 is (op0_4=0x7 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	Z = (bArgTbl2 & tmp) == 0;
-	T = bArgTbl2 & tmp;
+	T = (bArgTbl2 & tmp) != 0;
 }
 
 # Not sure why you'd do this?
 :BST.W wArgTbl2"."bIdx3 is (op0_4=0x7 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	Z = (wArgTbl2 & tmp) == 0;
-	T = (wArgTbl2 & tmp) == 1;
+	T = (wArgTbl2 & tmp) != 0;
 }
 
 :MOV.G0.B bArgTbl2,val is (op0_4=0x8 & opHalf4_1=1 & opData5_3; imm8) ... & bArgTbl2 & tbl2Width=0 [ val = (opData5_3 << 8) + imm8; ] {
@@ -1120,13 +1187,13 @@ with :phase=1 {
 
 :BBS bArgTbl2"."bIdx3 relAddr8 is (op0_4=0xD & opHalf4_1=1 & bIdx3; relAddr8) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
-	res = (tmp & bArgTbl2) == 1;
+	res = (tmp & bArgTbl2) != 0;
 	if (res) goto relAddr8;
 }
 
 :BBS.W wArgTbl2"."bIdx3 relAddr8 is (op0_4=0xD & opHalf4_1=1 & bIdx3; relAddr8) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
-	res = (tmp & wArgTbl2) == 1;
+	res = (tmp & wArgTbl2) != 0;
 	if (res) goto relAddr8;
 }
 
@@ -1151,23 +1218,23 @@ with :phase=1 {
 }
 
 :NEG.B bArgTbl2 is (op0_8=0xE6) ... & bArgTbl2 & tbl2Width=0 {
-	subFlags(0, bArgTbl2);
+	negFlags(bArgTbl2);
 	bArgTbl2 = 0 - bArgTbl2;
 	zeroFlags(bArgTbl2);
 }
 
 :NEG.W wArgTbl2 is (op0_8=0xE6) ... & wArgTbl2 & tbl2Width=1 {
-	subFlags(0, wArgTbl2);
+	negFlags(wArgTbl2);
 	wArgTbl2 = -wArgTbl2;
 	zeroFlags(wArgTbl2);
 }
 
-:PUSHA.B bArgTbl2 is (op0_8=0xE7) ... & bArgTbl2 & tbl2Width=0 {
-	push8(bArgTbl2);
+:PUSHA.B bAddrTbl2 is (op0_8=0xE7) ... & bAddrTbl2 & tbl2Width=0 {
+	push16(bAddrTbl2);
 }
 
-:PUSHA.W wArgTbl2 is (op0_8=0xE7) ... & wArgTbl2 & tbl2Width=1 {
-	push16(wArgTbl2);
+:PUSHA.W wAddrTbl2 is (op0_8=0xE7) ... & wAddrTbl2 & tbl2Width=1 {
+	push16(wAddrTbl2);
 }
 
 :MOV.G0.B bArgTbl2,bAddrAbs16 is (op0_8=0xE8; bAddrAbs16) ... & bArgTbl2 & tbl2Width=0 {
@@ -1273,14 +1340,14 @@ with :phase=1 {
 	zeroFlags(wArgTbl2);
 }
 
-:ROTL.B bArgTbl2 is (op0_8=0xF5) ... & bArgTbl2 & tbl2Width=0 {
+:ROTR.B bArgTbl2 is (op0_8=0xF5) ... & bArgTbl2 & tbl2Width=0 {
 	tmp1:1 = bArgTbl2 >> 1;
 	tmp2:1 = bArgTbl2 << 7;
 	bArgTbl2 = tmp1 + tmp2;
 	zeroFlags(bArgTbl2);
 }
 
-:ROTL.W wArgTbl2 is (op0_8=0xF5) ... & wArgTbl2 & tbl2Width=1 {
+:ROTR.W wArgTbl2 is (op0_8=0xF5) ... & wArgTbl2 & tbl2Width=1 {
 	tmp1:2 = wArgTbl2 >> 1;
 	tmp2:2 = wArgTbl2 << 15;
 	wArgTbl2 = tmp1 + tmp2;
@@ -1490,28 +1557,28 @@ with :phase=2 {
 }
 
 :CMP.GR.B #bArgTbl3,bReg5_3 is (op0_4=0x7 & opHalf4_1=0 & bReg5_3) ... & bArgTbl3 {
-	subFlags(bArgTbl3, bReg5_3);
-	tmp:1 = bArgTbl3 - bReg5_3;
+	subFlags(bReg5_3, bArgTbl3);
+	tmp:1 = bReg5_3 - bArgTbl3;
 	zeroFlags(tmp);
 }
 
 :CMP.GR.W #wArgTbl3,wReg5_3 is (op0_4=0x7 & opHalf4_1=0 & wReg5_3) ... & wArgTbl3 {
-	subFlags(wArgTbl3, wReg5_3);
-	tmp:2 = wArgTbl3 - wReg5_3;
+	subFlags(wReg5_3, wArgTbl3);
+	tmp:2 = wReg5_3 - wArgTbl3;
 	zeroFlags(tmp);
 }
 
 :CMP.ID.B #bArgTbl3,val is (op0_4=0x7 & opHalf4_1=1 & opData5_3; imm8) ... & bArgTbl3 [ val = (opData5_3 << 8) + imm8; ] {
 	ptr:3 = zext(val:2);
-	subFlags(bArgTbl3, *:1 ptr);
-	tmp:1 = bArgTbl3 - *:1 ptr;
+	subFlags(*:1 ptr, bArgTbl3);
+	tmp:1 = *:1 ptr - bArgTbl3;
 	zeroFlags(tmp);
 }
 
 :CMP.ID.W #wArgTbl3,val is (op0_4=0x7 & opHalf4_1=1 & opData5_3; imm8) ... & wArgTbl3 [ val = (opData5_3 << 8) + imm8; ] {
 	ptr:3 = zext(val:2);
-	subFlags(wArgTbl3, *:2 ptr);
-	tmp:2 = wArgTbl3 - *:2 ptr;
+	subFlags(*:2 ptr, wArgTbl3);
+	tmp:2 = *:2 ptr - wArgTbl3;
 	zeroFlags(tmp);
 }
 
@@ -1568,23 +1635,31 @@ with :phase=2 {
 
 :MOV.W #wArgTbl3,@(simm4_4,xFP) is (op0_4=0xD & simm4_4 & xFP) ... & wArgTbl3 {
 	ptr:3 = xFP + sext(simm4_4:1);
-	*:1 ptr = wArgTbl3;
+	*:2 ptr = wArgTbl3;
 }
 
-:ANDC.B #bArgTbl3,cReg5_3 is (op0_8=0xE4 & cReg5_3) ... & bArgTbl3 {
-	cReg5_3 = bArgTbl3 & cReg5_3;
+:ANDC.B #bArgTbl3,ccReg is (op0_8=0xE4 & ccReg) ... & bArgTbl3 {
+	syncFlags();
+	ccReg = bArgTbl3 & ccReg;
+	syncPSW();
 }
 
-:ANDC.W #wArgTbl3,cReg5_3 is (op0_8=0xE4 & cReg5_3) ... & wArgTbl3 {
-	cReg5_3 = wArgTbl3:1 & cReg5_3;
+:ANDC.W #wArgTbl3,ccReg is (op0_8=0xE4 & ccReg) ... & wArgTbl3 {
+	syncFlags();
+	ccReg = wArgTbl3:1 & ccReg;
+	syncPSW();
 }
 
 :ANDC.B #bArgTbl3,cwReg5_3 is (op0_8=0xE5 & cwReg5_3) ... & bArgTbl3 {
+	syncFlags();
 	cwReg5_3 = zext(bArgTbl3) & cwReg5_3;
+	syncPSW();
 }
 
 :ANDC.W #wArgTbl3,cwReg5_3 is (op0_8=0xE5 & cwReg5_3) ... & wArgTbl3 {
+	syncFlags();
 	cwReg5_3 = wArgTbl3 & cwReg5_3;
+	syncPSW();
 }
 
 :MOV.G0.B #bArgTbl3,bAddrAbs16 is (op0_8=0xE8; bAddrAbs16) ... & bArgTbl3 {
@@ -1603,20 +1678,28 @@ with :phase=2 {
 	wAddrAbs24 = wArgTbl3;
 }
 
-:ORC.B #bArgTbl3,cReg5_3 is (op0_8=0xEC & cReg5_3) ... & bArgTbl3 {
-	cReg5_3 = bArgTbl3 | cReg5_3;
+:ORC.B #bArgTbl3,ccReg is (op0_8=0xEC & ccReg) ... & bArgTbl3 {
+	syncFlags();
+	ccReg = bArgTbl3 | ccReg;
+	syncPSW();
 }
 
-:ORC.W #wArgTbl3,cReg5_3 is (op0_8=0xEC & cReg5_3) ... & wArgTbl3 {
-	cReg5_3 = wArgTbl3:1 | cReg5_3;
+:ORC.W #wArgTbl3,ccReg is (op0_8=0xEC & ccReg) ... & wArgTbl3 {
+	syncFlags();
+	ccReg = wArgTbl3:1 | ccReg;
+	syncPSW();
 }
 
 :ORC.B #bArgTbl3,cwReg5_3 is (op0_8=0xED & cwReg5_3) ... & bArgTbl3 {
+	syncFlags();
 	cwReg5_3 = zext(bArgTbl3) | cwReg5_3;
+	syncPSW();
 }
 
 :ORC.W #wArgTbl3,cwReg5_3 is (op0_8=0xED & cwReg5_3) ... & wArgTbl3 {
+	syncFlags();
 	cwReg5_3 = wArgTbl3 | cwReg5_3;
+	syncPSW();
 }
 
 :PUSH.B #bArgTbl3 is (op0_8=0xEF) ... & bArgTbl3 {
@@ -1629,9 +1712,10 @@ with :phase=2 {
 
 :MOVC.W #wArgTbl3,cwReg5_3 is (op0_4=0xF & opHalf4_1=0 & opData5_3=5 & cwReg5_3) ... & wArgTbl3 {
 	cwReg5_3 = wArgTbl3;
+	syncPSW();
 }
 
-:MOVC.B #bArgTbl3,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & opData5_3<5 & cReg5_3) ... & bArgTbl3 {
+:MOVC.B #bArgTbl3,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & opData5_3<4 & cReg5_3) ... & bArgTbl3 {
 	cReg5_3 = bArgTbl3;
 }
 
@@ -1639,8 +1723,22 @@ with :phase=2 {
 	cReg5_3 = bArgTbl3;
 }
 
-:MOVC.W #wArgTbl3,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & cReg5_3) ... & wArgTbl3 {
+:MOVC.W #wArgTbl3,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & opData5_3<4 & cReg5_3) ... & wArgTbl3 {
 	cReg5_3 = wArgTbl3:1;
+}
+
+:MOVC.W #wArgTbl3,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & opData5_3>5 & cReg5_3) ... & wArgTbl3 {
+	cReg5_3 = wArgTbl3:1;
+}
+
+:MOVC.B #bArgTbl3,ccReg is (op0_4=0xF & opHalf4_1=0 & ccReg) ... & bArgTbl3 {
+	ccReg = bArgTbl3;
+	syncPSW();
+}
+
+:MOVC.W #wArgTbl3,ccReg is (op0_4=0xF & opHalf4_1=0 & ccReg) ... & wArgTbl3 {
+	ccReg = wArgTbl3:1;
+	syncPSW();
 }
 
 } # End with :phase=2
@@ -1729,7 +1827,7 @@ with :phase=3 {
 }
 
 :SHXR.W wArgTbl4,wReg5_3 is (op0_4=0x7 & opHalf4_1=1 & wReg5_3) ... & wArgTbl4 {
-	wReg5_3 = (wArgTbl4 << 1) + (zext(X) << 15);
+	wReg5_3 = (wArgTbl4 >> 1) + (zext(X) << 15);
 	zeroFlags(wReg5_3);
 }
 
@@ -1831,24 +1929,45 @@ with :phase=3 {
 }
 
 :NEG.L lArgTbl4 is (op0_8=0xEE) ... & lArgTbl4 {
-	lArgTbl4 = ~lArgTbl4;
+	negFlags(lArgTbl4);
+	lArgTbl4 = -lArgTbl4;
 	zeroFlags(lArgTbl4);
 }
 
 :MOVC.W wArgTbl4,cwReg5_3 is (op0_4=0xF & opHalf4_1=0 & opData5_3=5 & cwReg5_3) ... & wArgTbl4 {
 	cwReg5_3 = wArgTbl4;
+	syncPSW();
 }
 
 :MOVC.W cwReg5_3,wArgTbl4 is (op0_4=0xF & opHalf4_1=1 & opData5_3=5 & cwReg5_3) ... & wArgTbl4 {
+	syncFlags();
 	wArgTbl4 = cwReg5_3;
 }
 
-:MOVC.W wArgTbl4,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & cReg5_3) ... & wArgTbl4 {
+:MOVC.W wArgTbl4,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & opData5_3<4 & cReg5_3) ... & wArgTbl4 {
 	cReg5_3 = wArgTbl4:1;
 }
 
-:MOVC.W cReg5_3,wArgTbl4 is (op0_4=0xF & opHalf4_1=1 & cReg5_3) ... & wArgTbl4 {
+:MOVC.W wArgTbl4,cReg5_3 is (op0_4=0xF & opHalf4_1=0 & opData5_3>5 & cReg5_3) ... & wArgTbl4 {
+	cReg5_3 = wArgTbl4:1;
+}
+
+:MOVC.W cReg5_3,wArgTbl4 is (op0_4=0xF & opHalf4_1=1 & opData5_3<4 & cReg5_3) ... & wArgTbl4 {
 	wArgTbl4 = zext(cReg5_3);
+}
+
+:MOVC.W cReg5_3,wArgTbl4 is (op0_4=0xF & opHalf4_1=1 & opData5_3>5 & cReg5_3) ... & wArgTbl4 {
+	wArgTbl4 = zext(cReg5_3);
+}
+
+:MOVC.W wArgTbl4,ccReg is (op0_4=0xF & opHalf4_1=0 & ccReg) ... & wArgTbl4 {
+	ccReg = wArgTbl4:1;
+	syncPSW();
+}
+
+:MOVC.W ccReg,wArgTbl4 is (op0_4=0xF & opHalf4_1=1 & ccReg) ... & wArgTbl4 {
+	syncFlags();
+	wArgTbl4 = zext(ccReg);
 }
 
 } # End with :phase=3
@@ -1875,29 +1994,49 @@ with :phase=4 {
 	if (wReg5_3 != 0) goto relAddr8;
 }
 
-:JMP @(regIndirect) is (op0_4=0xC & opHalf4_1=0 & regIndirect) ... {
-	goto [regIndirect];
+:JMP @(jmpRegIndirect) is (op0_4=0xC & opHalf4_1=0 & jmpRegIndirect) ... {
+	goto [jmpRegIndirect];
 }
 
-:JSR @(regIndirect) is (op0_4=0xC & opHalf4_1=1 & regIndirect) ... {
+:JSR @(jmpRegIndirect) is (op0_4=0xC & opHalf4_1=1 & jmpRegIndirect) ... {
 	ret:2 = inst_next;
 	push16(ret);
-	call [regIndirect];
+	call [jmpRegIndirect];
 }
 
 :POPC cwReg5_3 is (op0_4=0xD & opHalf4_1=0 & opData5_3=5 & cwReg5_3) ... {
 	pop16(cwReg5_3);
+	syncPSW();
 }
 
-:POPC cReg5_3 is (op0_4=0xD & opHalf4_1=0 & cReg5_3) ... {
+:POPC ccReg is (op0_4=0xD & opHalf4_1=0 & ccReg) ... {
+	pop8(ccReg);
+	syncPSW();
+}
+
+:POPC cReg5_3 is (op0_4=0xD & opHalf4_1=0 & opData5_3<4 & cReg5_3) ... {
+	pop8(cReg5_3);
+}
+
+:POPC cReg5_3 is (op0_4=0xD & opHalf4_1=0 & opData5_3>5 & cReg5_3) ... {
 	pop8(cReg5_3);
 }
 
 :PUSHC cwReg5_3 is (op0_4=0xD & opHalf4_1=1 & opData5_3=5 & cwReg5_3) ... {
+	syncFlags();
 	push16(cwReg5_3);
 }
 
-:PUSHC cReg5_3 is (op0_4=0xD & opHalf4_1=1 & cReg5_3) ... {
+:PUSHC ccReg is (op0_4=0xD & opHalf4_1=1 & ccReg) ... {
+	syncFlags();
+	push8(ccReg);
+}
+
+:PUSHC cReg5_3 is (op0_4=0xD & opHalf4_1=1 & opData5_3<4 & cReg5_3) ... {
+	push8(cReg5_3);
+}
+
+:PUSHC cReg5_3 is (op0_4=0xD & opHalf4_1=1 & opData5_3>5 & cReg5_3) ... {
 	push8(cReg5_3);
 } 
 
@@ -2506,13 +2645,13 @@ macro tbl6Dcmp (a,b) {
 ###### TABLE 7
 with :phase=6 {
 
-:XOR.L bArgTbl2,lReg5_3 is (op0_4=0x0 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
-	lReg5_3 = lReg5_3 ^ zext(bArgTbl2);
+:XOR.L lArgTbl2,lReg5_3 is (op0_4=0x0 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=0 {
+	lReg5_3 = lReg5_3 ^ lArgTbl2;
 	zeroFlags(lReg5_3);
 }
 
-:XOR.L wArgTbl2,lReg5_3 is (op0_4=0x0 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
-	lReg5_3 = lReg5_3 ^ zext(wArgTbl2);
+:XOR.L lArgTbl2,lReg5_3 is (op0_4=0x0 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=1 {
+	lReg5_3 = lReg5_3 ^ lArgTbl2;
 	zeroFlags(lReg5_3);
 }
 
@@ -2528,13 +2667,13 @@ with :phase=6 {
 	zeroFlags(wArgTbl2);
 }
 
-:OR.L bArgTbl2,lReg5_3 is (op0_4=0x1 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
-	lReg5_3 = lReg5_3 | zext(bArgTbl2);
+:OR.L lArgTbl2,lReg5_3 is (op0_4=0x1 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=0 {
+	lReg5_3 = lReg5_3 | lArgTbl2;
 	zeroFlags(lReg5_3);
 }
 
-:OR.L wArgTbl2,lReg5_3 is (op0_4=0x1 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
-	lReg5_3 = lReg5_3 | zext(wArgTbl2);
+:OR.L lArgTbl2,lReg5_3 is (op0_4=0x1 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=1 {
+	lReg5_3 = lReg5_3 | lArgTbl2;
 	zeroFlags(lReg5_3);
 }
 
@@ -2550,13 +2689,13 @@ with :phase=6 {
 	zeroFlags(wArgTbl2);
 }
 
-:AND.L bArgTbl2,lReg5_3 is (op0_4=0x2 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
-	lReg5_3 = lReg5_3 & zext(bArgTbl2);
+:AND.L lArgTbl2,lReg5_3 is (op0_4=0x2 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=0 {
+	lReg5_3 = lReg5_3 & lArgTbl2;
 	zeroFlags(lReg5_3);
 }
 
-:AND.L wArgTbl2,lReg5_3 is (op0_4=0x2 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
-	lReg5_3 = lReg5_3 & zext(wArgTbl2);
+:AND.L lArgTbl2,lReg5_3 is (op0_4=0x2 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=1 {
+	lReg5_3 = lReg5_3 & lArgTbl2;
 	zeroFlags(lReg5_3);
 }
 
@@ -2572,15 +2711,15 @@ with :phase=6 {
 	zeroFlags(wArgTbl2);
 }
 
-:SUBX.L bArgTbl2,lReg5_3 is (op0_4=0x3 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
-	subFlags(lReg5_3, sext(bArgTbl2));
-	lReg5_3 = lReg5_3 - sext(bArgTbl2) - zext(X);
+:SUBX.L lArgTbl2,lReg5_3 is (op0_4=0x3 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=0 {
+	subFlags(lReg5_3, lArgTbl2);
+	lReg5_3 = lReg5_3 - lArgTbl2 - zext(X);
 	zeroFlags(lReg5_3);
 }
 
-:SUBX.L wArgTbl2,lReg5_3 is (op0_4=0x3 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
-	subFlags(lReg5_3, sext(wArgTbl2));
-	lReg5_3 = lReg5_3 - sext(wArgTbl2) - zext(X);
+:SUBX.L lArgTbl2,lReg5_3 is (op0_4=0x3 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=1 {
+	subFlags(lReg5_3, lArgTbl2);
+	lReg5_3 = lReg5_3 - lArgTbl2 - zext(X);
 	zeroFlags(lReg5_3);
 }
 
@@ -2596,15 +2735,15 @@ with :phase=6 {
 	zeroFlags(wArgTbl2);
 }
 
-:ADDX.L bArgTbl2,lReg5_3 is (op0_4=0x4 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
-	addFlags(lReg5_3, zext(bArgTbl2));
-	lReg5_3 = lReg5_3 + zext(bArgTbl2) + zext(X);
+:ADDX.L lArgTbl2,lReg5_3 is (op0_4=0x4 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=0 {
+	addFlags(lReg5_3, lArgTbl2);
+	lReg5_3 = lReg5_3 + lArgTbl2 + zext(X);
 	zeroFlags(lReg5_3);
 }
 
-:ADDX.L wArgTbl2,lReg5_3 is (op0_4=0x4 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
-	addFlags(lReg5_3, zext(wArgTbl2));
-	lReg5_3 = lReg5_3 + zext(wArgTbl2) + zext(X);
+:ADDX.L lArgTbl2,lReg5_3 is (op0_4=0x4 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=1 {
+	addFlags(lReg5_3, lArgTbl2);
+	lReg5_3 = lReg5_3 + lArgTbl2 + zext(X);
 	zeroFlags(lReg5_3);
 }
 
@@ -2620,15 +2759,15 @@ with :phase=6 {
 	zeroFlags(wArgTbl2);
 }
 
-:SUB.L bArgTbl2,lReg5_3 is (op0_4=0x5 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
-	subFlags(lReg5_3, zext(bArgTbl2));
-	lReg5_3 = lReg5_3 - zext(bArgTbl2);
+:SUB.L lArgTbl2,lReg5_3 is (op0_4=0x5 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=0 {
+	subFlags(lReg5_3, lArgTbl2);
+	lReg5_3 = lReg5_3 - lArgTbl2;
 	zeroFlags(lReg5_3);
 }
 
-:SUB.L wArgTbl2,lReg5_3 is (op0_4=0x5 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
-	subFlags(lReg5_3, zext(wArgTbl2));
-	lReg5_3 = lReg5_3 - zext(wArgTbl2);
+:SUB.L lArgTbl2,lReg5_3 is (op0_4=0x5 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=1 {
+	subFlags(lReg5_3, lArgTbl2);
+	lReg5_3 = lReg5_3 - lArgTbl2;
 	zeroFlags(lReg5_3);
 }
 
@@ -2644,15 +2783,15 @@ with :phase=6 {
 	zeroFlags(wArgTbl2);
 }
 
-:ADD.L bArgTbl2,lReg5_3 is (op0_4=0x6 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
-	addFlags(lReg5_3, zext(bArgTbl2));
-	lReg5_3 = lReg5_3 + zext(bArgTbl2);
+:ADD.L lArgTbl2,lReg5_3 is (op0_4=0x6 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=0 {
+	addFlags(lReg5_3, lArgTbl2);
+	lReg5_3 = lReg5_3 + lArgTbl2;
 	zeroFlags(lReg5_3);
 }
 
-:ADD.L wArgTbl2,lReg5_3 is (op0_4=0x6 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
-	addFlags(lReg5_3, zext(wArgTbl2));
-	lReg5_3 = lReg5_3 + zext(wArgTbl2);
+:ADD.L lArgTbl2,lReg5_3 is (op0_4=0x6 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=1 {
+	addFlags(lReg5_3, lArgTbl2);
+	lReg5_3 = lReg5_3 + lArgTbl2;
 	zeroFlags(lReg5_3);
 }
 
@@ -2668,44 +2807,44 @@ with :phase=6 {
 	wArgTbl2 = wArgTbl2 | tmp;
 }
 
-:CMP.L bArgTbl2,lReg5_3 is (op0_4=0x7 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
-	subFlags(lReg5_3, zext(bArgTbl2));
-	tmp:4 = lReg5_3 - zext(bArgTbl2);
+:CMP.L lArgTbl2,lReg5_3 is (op0_4=0x7 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=0 {
+	subFlags(lReg5_3, lArgTbl2);
+	tmp:4 = lReg5_3 - lArgTbl2;
 	zeroFlags(tmp);
 }
 
-:CMP.L wArgTbl2,lReg5_3 is (op0_4=0x7 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
-	subFlags(lReg5_3, zext(wArgTbl2));
-	tmp:4 = lReg5_3 - zext(wArgTbl2);
+:CMP.L lArgTbl2,lReg5_3 is (op0_4=0x7 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=1 {
+	subFlags(lReg5_3, lArgTbl2);
+	tmp:4 = lReg5_3 - lArgTbl2;
 	zeroFlags(tmp);
 }
 
 :BST bArgTbl2"."bIdx3 is (op0_4=0x7 & opHalf4_1=1 & bIdx3) ... & bArgTbl2 & tbl2Width=0 {
 	tmp:1 = 1 << bIdx3;
 	Z = (bArgTbl2 & tmp) == 0;
-	T = (bArgTbl2 & tmp) == 1;
+	T = (bArgTbl2 & tmp) != 0;
 }
 
 :BST wArgTbl2"."bIdx3 is (op0_4=0x7 & opHalf4_1=1 & bIdx3) ... & wArgTbl2 & tbl2Width=1 {
 	tmp:2 = 1 << bIdx3;
 	Z = (wArgTbl2 & tmp) == 0;
-	T = (wArgTbl2 & tmp) == 1;
+	T = (wArgTbl2 & tmp) != 0;
 }
 
-:MOV.L bArgTbl2,lReg5_3 is (op0_4=0x8 & opHalf4_1=0 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
-	lReg5_3 = zext(bArgTbl2);
+:MOV.L lArgTbl2,lReg5_3 is (op0_4=0x8 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=0 {
+	lReg5_3 = lArgTbl2;
 }
 
-:MOV.L wArgTbl2,lReg5_3 is (op0_4=0x8 & opHalf4_1=0 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
-	lReg5_3 = zext(wArgTbl2);
+:MOV.L lArgTbl2,lReg5_3 is (op0_4=0x8 & opHalf4_1=0 & lReg5_3) ... & lArgTbl2 & tbl2Width=1 {
+	lReg5_3 = lArgTbl2;
 }
 
-:MOV.L lReg5_3,bArgTbl2 is (op0_4=0x8 & opHalf4_1=1 & lReg5_3) ... & bArgTbl2 & tbl2Width=0 {
-	bArgTbl2 = lReg5_3:1;
+:MOV.L lReg5_3,lArgTbl2 is (op0_4=0x8 & opHalf4_1=1 & lReg5_3) ... & lArgTbl2 & tbl2Width=0 {
+	lArgTbl2 = lReg5_3;
 }
 
-:MOV.L lReg5_3,wArgTbl2 is (op0_4=0x8 & opHalf4_1=1 & lReg5_3) ... & wArgTbl2 & tbl2Width=1 {
-	wArgTbl2 = lReg5_3:2;
+:MOV.L lReg5_3,lArgTbl2 is (op0_4=0x8 & opHalf4_1=1 & lReg5_3) ... & lArgTbl2 & tbl2Width=1 {
+	lArgTbl2 = lReg5_3;
 }
 
 :XCH bArgTbl2,bReg5_3 is (op0_4=0x9 & opHalf4_1=1 & bReg5_3) ... & bArgTbl2 & tbl2Width=0 {

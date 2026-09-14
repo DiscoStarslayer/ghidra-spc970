@@ -17,6 +17,6 @@
 	</segmentop>
 	
 	<default_memory_blocks>
-		<memory_block name="IO" start_address="io:0" length="0xFF" initialized="false" />
+		<memory_block name="IO" start_address="io:0" length="0x100" initialized="false" />
 	</default_memory_blocks>
 </processor_spec>

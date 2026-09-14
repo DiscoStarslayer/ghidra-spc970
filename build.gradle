@@ -26,8 +26,8 @@
 //     > gradle -PGHIDRA_INSTALL_DIR=<Absolute path to Ghidra>
 //
 // Gradle should be invoked from the directory of the project to build.  Please see the
-// application.gradle.version property in <GHIDRA_INSTALL_DIR>/Ghidra/application.properties
-// for the correction version of Gradle to use for the Ghidra installation you specify.
+// application.gradle.min property in <GHIDRA_INSTALL_DIR>/Ghidra/application.properties
+// for the minimum version of Gradle supported by the Ghidra installation you specify.
 
 //----------------------START "DO NOT MODIFY" SECTION------------------------------
 def ghidraInstallDir
@@ -56,8 +56,63 @@ repositories {
 
 dependencies {
 	// Any external dependencies added here will automatically be copied to the lib/ directory when
-	// this extension is built.	
+	// this extension is built.
 }
 
-// Exclude additional files from the built extension
-// Ex: buildExtension.exclude '.idea/**'
+def sleighLanguageDir = file('data/languages')
+def sleighCompilerClasspath = files(
+	fileTree("${ghidraInstallDir}/Ghidra/Framework/SoftwareModeling/lib") {
+		include '*.jar'
+	},
+	fileTree("${ghidraInstallDir}/Ghidra/Framework/Generic/lib") {
+		include '*.jar'
+	},
+	fileTree("${ghidraInstallDir}/Ghidra/Framework/Utility/lib") {
+		include '*.jar'
+	}
+)
+
+tasks.register('compileSleigh', JavaExec) {
+	group = 'Ghidra'
+	description = 'Compiles the SPC970 SLEIGH language with the selected Ghidra installation.'
+
+	classpath = sleighCompilerClasspath
+	mainClass = 'ghidra.pcodeCPort.slgh_compile.SleighCompile'
+	workingDir = file('data')
+	args '-i', 'sleighArgs.txt', '-a', 'languages'
+	jvmArgs '-Djava.awt.headless=true'
+
+	inputs.files(fileTree(sleighLanguageDir) {
+		include '**/*.slaspec'
+		include '**/*.sinc'
+	})
+	inputs.file('data/sleighArgs.txt')
+	inputs.files(sleighCompilerClasspath)
+	outputs.file('data/languages/spc970.sla')
+}
+
+tasks.named('buildExtension') {
+	dependsOn tasks.named('compileSleigh')
+	includeEmptyDirs = false
+}
+
+// This is a data-only processor module; do not package empty Java artifacts.
+tasks.named('jar') {
+	enabled = false
+}
+
+tasks.named('zipSource') {
+	enabled = false
+}
+
+tasks.named('clean') {
+	delete fileTree(sleighLanguageDir) {
+		include '**/*.sla'
+	}
+}
+
+// Keep development-only content out of the installable extension archive.
+buildExtension.exclude '.git/**'
+buildExtension.exclude '.gitignore'
+buildExtension.exclude '.gitattributes'
+buildExtension.exclude 'ghidra_*_PUBLIC/**'
