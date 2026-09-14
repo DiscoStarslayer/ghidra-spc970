@@ -1,0 +1,99 @@
+name: Build tagged release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GHIDRA_VERSION: "12.1.3"
+  GRADLE_VERSION: "8.14.4"
+
+jobs:
+  build-and-release:
+    name: Build and publish Ghidra 12.1.3 extension
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Validate release tag
+        shell: bash
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Expected a version tag such as v1.2 or v1.2.3; got $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+
+      - name: Set up Ghidra
+        uses: antoniovazquezblanco/setup-ghidra@029b00367e561cef07baacedb6de5e007a1ebc9a
+        with:
+          auth_token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ env.GHIDRA_VERSION }}
+
+      - name: Build and check extension
+        run: gradle --no-daemon -PGHIDRA_INSTALL_DIR="$GHIDRA_INSTALL_DIR" clean check buildExtension
+
+      - name: Locate release archive and create checksum
+        id: package
+        shell: bash
+        run: |
+          shopt -s nullglob
+          archives=(dist/ghidra_*_SPC970.zip)
+          if (( ${#archives[@]} != 1 )); then
+            echo "Expected exactly one extension archive, found ${#archives[@]}" >&2
+            exit 1
+          fi
+          archive="${archives[0]}"
+          archive_name="${archive#dist/}"
+          (
+            cd dist
+            sha256sum "$archive_name" > "$archive_name.sha256"
+          )
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+          echo "checksum=$archive.sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Retain workflow artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: SPC970-${{ github.ref_name }}-Ghidra-${{ env.GHIDRA_VERSION }}
+          path: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.checksum }}
+          if-no-files-found: error
+
+      - name: Create or update GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+          CHECKSUM: ${{ steps.package.outputs.checksum }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$ARCHIVE" "$CHECKSUM" \
+              --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$GITHUB_REF_NAME" "$ARCHIVE" "$CHECKSUM" \
+              --verify-tag --generate-notes --title "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY"
+          fi
