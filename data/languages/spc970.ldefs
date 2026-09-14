@@ -7,7 +7,7 @@
             endian="little"
             size="16"
             variant="default"
-            version="1.0"
+            version="1.2"
             slafile="spc970.sla"
             processorspec="spc970.pspec"
             id="spc970:LE:16:default">

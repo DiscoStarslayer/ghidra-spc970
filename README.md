@@ -1,6 +1,6 @@
 # Ghidra SPC970 processor module
 
-This extension adds Sony SPC970 support to Ghidra.
+This extension adds Sony SPC970 support to Ghidra, and MechaCon firmware dump loader.
 
 ## Compatibility
 
@@ -21,7 +21,17 @@ export GHIDRA_INSTALL_DIR=/absolute/path/to/ghidra_12.1.3_PUBLIC
 
 In Ghidra, choose **File > Install Extensions...**, add the generated ZIP, enable **SPC970**, and restart Ghidra when prompted.
 
-The module does not claim a container file format. Import firmware as **Raw Binary**, then select the language ID `spc970:LE:16:default` and set the image base appropriate for the target firmware.
+For a recognized 256 KiB MechaCon dump, choose **Sony MechaCon ROM** in the import
+dialog. The loader automatically:
+
+- selects `spc970:LE:16:default`;
+- maps the ROM at `ram:FC0000`
+- maps SRAM `ram:000000` -> `ram:00FFFF`;
+- applies hardware, command, MG, and buffer symbols
+- creates entry points
+
+Mechacon analyzer discovers SCMD, NCMD, PMAP, and MG dispatch tables.
+It identifies known SFR helper routines and MG S-box data. 
 
 ## Development
 

@@ -96,15 +96,6 @@ tasks.named('buildExtension') {
 	includeEmptyDirs = false
 }
 
-// This is a data-only processor module; do not package empty Java artifacts.
-tasks.named('jar') {
-	enabled = false
-}
-
-tasks.named('zipSource') {
-	enabled = false
-}
-
 tasks.named('clean') {
 	delete fileTree(sleighLanguageDir) {
 		include '**/*.sla'
