@@ -16,12 +16,14 @@
 package spc970;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 
 import ghidra.app.util.MemoryBlockUtils;
 import ghidra.app.util.bin.ByteProvider;
+import ghidra.app.util.importer.MessageLog;
 import ghidra.app.util.opinion.AbstractProgramWrapperLoader;
 import ghidra.app.util.opinion.LoadSpec;
 import ghidra.app.util.opinion.Loaded;
@@ -32,7 +34,9 @@ import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.data.Pointer24DataType;
 import ghidra.program.model.data.WordDataType;
 import ghidra.program.model.lang.LanguageCompilerSpecPair;
+import ghidra.program.model.lang.Register;
 import ghidra.program.model.listing.CommentType;
+import ghidra.program.model.listing.ContextChangeException;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.symbol.RefType;
@@ -51,8 +55,8 @@ public final class MechaConRomLoader extends AbstractProgramWrapperLoader {
 	static final long ROM_BASE = 0xfc0000;
 	static final long ROM_END = 0xffffff;
 	static final long INTERNAL_RAM_SIZE = 0x10000;
-	private static final long RESERVED_BANK_OFFSET = 0x20000;
-	private static final long BANK_SIZE = 0x10000;
+	static final long BANK_SIZE = 0x10000;
+	private static final int BANK_COUNT = (int) (ROM_SIZE / BANK_SIZE);
 
 	private static final long FAR_VECTOR_1_OFFSET = 0x3ff90;
 	private static final long FAR_VECTOR_2_OFFSET = 0x3ff9c;
@@ -86,15 +90,7 @@ public final class MechaConRomLoader extends AbstractProgramWrapperLoader {
 			return false;
 		}
 
-		boolean startupMatches =
-			matches(provider, 0x00, 0xe6, 0x00, 0xd8, 0xe8) &&
-			matches(provider, 0x05, 0x09, 0x36, 0xcc, 0x06, 0x0a, 0xd8, 0xe8) &&
-			matches(provider, 0x0d, 0x09, 0xea, 0x00, 0x01, 0xe8) &&
-			matches(provider, 0x13, 0x09, 0xe8) &&
-			matches(provider, 0x16, 0x09, 0xcc, 0x07, 0x04, 0xec) &&
-			(matches(provider, 0x1c, 0xe5, 0xff, 0xe2, 0x80) ||
-				matches(provider, 0x1c, 0xe6, 0xff, 0xe2, 0x80));
-		return startupMatches && containsLicenseMarker(provider);
+		return findPrimaryBankOffset(provider) >= 0 && containsLicenseMarker(provider);
 	}
 
 	@Override
@@ -104,25 +100,10 @@ public final class MechaConRomLoader extends AbstractProgramWrapperLoader {
 		settings.monitor().checkCancelled();
 
 		AddressSpace ram = program.getAddressFactory().getDefaultAddressSpace();
-		Address romStart = ram.getAddress(ROM_BASE);
 		FileBytes fileBytes = MemoryBlockUtils.createFileBytes(program, settings.provider(),
 			settings.monitor());
 		try {
-			if (isZeroRange(settings.provider(), RESERVED_BANK_OFFSET, BANK_SIZE)) {
-				createRomBlock(program, settings, fileBytes, "ROM", romStart, 0,
-					RESERVED_BANK_OFFSET, "Sony MechaCon firmware ROM banks FC-FD", true);
-				createRomBlock(program, settings, fileBytes, "RESERVED_FE",
-					ram.getAddress(ROM_BASE + RESERVED_BANK_OFFSET), RESERVED_BANK_OFFSET,
-					BANK_SIZE, "Reserved, zero-filled MechaCon bank FE", false);
-				createRomBlock(program, settings, fileBytes, "ROM_FF",
-					ram.getAddress(ROM_BASE + RESERVED_BANK_OFFSET + BANK_SIZE),
-					RESERVED_BANK_OFFSET + BANK_SIZE, BANK_SIZE,
-					"Sony MechaCon firmware ROM bank FF", true);
-			}
-			else {
-				createRomBlock(program, settings, fileBytes, "ROM", romStart, 0, ROM_SIZE,
-					"Sony MechaCon firmware ROM", true);
-			}
+			createRomBanks(program, settings, fileBytes, ram);
 		}
 		catch (AddressOverflowException e) {
 			throw new IOException("MechaCon ROM does not fit in the SPC970 address space", e);
@@ -139,6 +120,11 @@ public final class MechaConRomLoader extends AbstractProgramWrapperLoader {
 	@Override
 	protected void postLoadProgramFixups(List<Loaded<Program>> loadedPrograms,
 			ImporterSettings settings) throws CancelledException, IOException {
+		long primaryBankOffset = findPrimaryBankOffset(settings.provider());
+		if (primaryBankOffset < 0) {
+			throw new IOException("Could not locate the MechaCon primary ROM bank");
+		}
+		long primaryBankAddress = ROM_BASE + primaryBankOffset;
 		int resetOffset = readUnsigned16(settings.provider(), RESET_VECTOR_OFFSET);
 		long farTarget1 = readUnsigned24(settings.provider(), FAR_VECTOR_1_OFFSET);
 		long farTarget2 = readUnsigned24(settings.provider(), FAR_VECTOR_2_OFFSET);
@@ -150,15 +136,66 @@ public final class MechaConRomLoader extends AbstractProgramWrapperLoader {
 					program.startTransaction("Apply Sony MechaCon memory profile");
 				boolean commit = false;
 				try {
+					applyRegisterContext(program, settings.log());
 					applyPlatformSymbols(program, settings);
-					applyReservedBankMarker(program, settings);
-					applyVectors(program, settings, resetOffset, farTarget1, farTarget2);
+					applyNonExecutableRomMarkers(program, settings);
+					applyVectors(program, settings, primaryBankAddress, resetOffset, farTarget1,
+						farTarget2);
 					commit = true;
 				}
 				finally {
 					program.endTransaction(transaction, commit);
 				}
 			});
+		}
+	}
+
+	private static void createRomBanks(Program program, ImporterSettings settings,
+			FileBytes fileBytes, AddressSpace ram) throws IOException, AddressOverflowException {
+		for (int index = 0; index < BANK_COUNT; index++) {
+			long fileOffset = index * BANK_SIZE;
+			long bankAddress = ROM_BASE + fileOffset;
+			String bankName = String.format("%02X", bankAddress >>> 16);
+			long lastNonZero = findLastNonZero(settings.provider(), fileOffset, BANK_SIZE);
+			if (lastNonZero < 0) {
+				createRomBlock(program, settings, fileBytes, "RESERVED_" + bankName,
+					ram.getAddress(bankAddress), fileOffset, BANK_SIZE,
+					"Reserved, zero-filled MechaCon bank " + bankName, false);
+				continue;
+			}
+
+			long executableLength = lastNonZero + 1;
+			createRomBlock(program, settings, fileBytes, "ROM_" + bankName,
+				ram.getAddress(bankAddress), fileOffset, executableLength,
+				"Sony MechaCon firmware ROM bank " + bankName, true);
+			if (executableLength < BANK_SIZE) {
+				createRomBlock(program, settings, fileBytes, "PADDING_" + bankName,
+					ram.getAddress(bankAddress + executableLength),
+					fileOffset + executableLength, BANK_SIZE - executableLength,
+					"Trailing zero padding in MechaCon bank " + bankName, false);
+			}
+		}
+	}
+
+	/**
+	 * Records the direct-page value used throughout all known MechaCon firmware. The loader's
+	 * structural checks keep this platform-specific invariant out of generic SPC970 programs.
+	 */
+	static void applyRegisterContext(Program program, MessageLog log) {
+		Register dp = program.getProgramContext().getRegister("DP");
+		if (dp == null) {
+			log.appendMsg(LOADER_NAME, "SPC970 language does not define the DP register");
+			return;
+		}
+
+		AddressSpace space = program.getAddressFactory().getDefaultAddressSpace();
+		try {
+			program.getProgramContext().setValue(dp, space.getAddress(ROM_BASE),
+				space.getAddress(ROM_END), BigInteger.ZERO);
+		}
+		catch (ContextChangeException e) {
+			log.appendMsg(LOADER_NAME,
+				"Could not apply the MechaCon DP=0 register context: " + e.getMessage());
 		}
 	}
 
@@ -173,20 +210,22 @@ public final class MechaConRomLoader extends AbstractProgramWrapperLoader {
 		}
 	}
 
-	private static void applyReservedBankMarker(Program program, ImporterSettings settings) {
-		MemoryBlock block = program.getMemory().getBlock("RESERVED_FE");
-		if (block == null) {
-			return;
-		}
-		try {
-			program.getSymbolTable().createLabel(block.getStart(), "reserved_bank_fe",
-				SourceType.IMPORTED);
-			program.getListing().setComment(block.getStart(), CommentType.PLATE,
-				"Reserved, zero-filled MechaCon address bank; not executable");
-		}
-		catch (InvalidInputException e) {
-			settings.log().appendMsg(LOADER_NAME,
-				"Could not label reserved bank FE: " + e.getMessage());
+	private static void applyNonExecutableRomMarkers(Program program, ImporterSettings settings) {
+		for (MemoryBlock block : program.getMemory().getBlocks()) {
+			if (!block.getName().startsWith("RESERVED_") &&
+				!block.getName().startsWith("PADDING_")) {
+				continue;
+			}
+			String label = block.getName().toLowerCase();
+			try {
+				program.getSymbolTable().createLabel(block.getStart(), label, SourceType.IMPORTED);
+				program.getListing().setComment(block.getStart(), CommentType.PLATE,
+					block.getComment() + "; not executable");
+			}
+			catch (InvalidInputException e) {
+				settings.log().appendMsg(LOADER_NAME,
+					"Could not label " + block.getName() + ": " + e.getMessage());
+			}
 		}
 	}
 
@@ -220,16 +259,16 @@ public final class MechaConRomLoader extends AbstractProgramWrapperLoader {
 		settings.log().appendMsg(LOADER_NAME, "Applied " + applied + " MechaCon symbols");
 	}
 
-	private static void applyVectors(Program program, ImporterSettings settings, int resetOffset,
-			long farTarget1, long farTarget2) {
+	private static void applyVectors(Program program, ImporterSettings settings,
+			long primaryBankAddress, int resetOffset, long farTarget1, long farTarget2) {
 		AddressSpace ram = program.getAddressFactory().getDefaultAddressSpace();
-		Address romStart = ram.getAddress(ROM_BASE);
+		Address romStart = ram.getAddress(primaryBankAddress);
 		markAsFunction(program, "rom_start", romStart);
 		program.getSymbolTable().addExternalEntryPoint(romStart);
 
 		if (resetOffset != 0 && resetOffset != 0xffff) {
 			applyVector(program, settings, ram.getAddress(ROM_BASE + RESET_VECTOR_OFFSET),
-				ram.getAddress(ROM_BASE | resetOffset), "RESET_VECTOR", "reset", false);
+				ram.getAddress(primaryBankAddress + resetOffset), "RESET_VECTOR", "reset", false);
 		}
 		else {
 			settings.log().appendMsg(LOADER_NAME, "Reset vector is not present");
@@ -301,15 +340,39 @@ public final class MechaConRomLoader extends AbstractProgramWrapperLoader {
 		return false;
 	}
 
-	private static boolean isZeroRange(ByteProvider provider, long offset, long length)
-			throws IOException {
-		byte[] bytes = provider.readBytes(offset, length);
-		for (byte value : bytes) {
-			if (value != 0) {
-				return false;
+	static long findPrimaryBankOffset(ByteProvider provider) throws IOException {
+		if (provider.length() != ROM_SIZE) {
+			return -1;
+		}
+		for (int index = 0; index < BANK_COUNT; index++) {
+			long bankOffset = index * BANK_SIZE;
+			if (startupMatches(provider, bankOffset)) {
+				return bankOffset;
 			}
 		}
-		return true;
+		return -1;
+	}
+
+	private static boolean startupMatches(ByteProvider provider, long bankOffset)
+			throws IOException {
+		return matches(provider, bankOffset, 0xe6, 0x00, 0xd8, 0xe8) &&
+			matches(provider, bankOffset + 0x05, 0x09, 0x36, 0xcc, 0x06, 0x0a, 0xd8, 0xe8) &&
+			matches(provider, bankOffset + 0x0d, 0x09, 0xea, 0x00, 0x01, 0xe8) &&
+			matches(provider, bankOffset + 0x13, 0x09, 0xe8) &&
+			matches(provider, bankOffset + 0x16, 0x09, 0xcc, 0x07, 0x04, 0xec) &&
+			(matches(provider, bankOffset + 0x1c, 0xe5, 0xff, 0xe2, 0x80) ||
+				matches(provider, bankOffset + 0x1c, 0xe6, 0xff, 0xe2, 0x80));
+	}
+
+	private static long findLastNonZero(ByteProvider provider, long offset, long length)
+			throws IOException {
+		byte[] bytes = provider.readBytes(offset, length);
+		for (int index = bytes.length - 1; index >= 0; index--) {
+			if (bytes[index] != 0) {
+				return index;
+			}
+		}
+		return -1;
 	}
 
 	private static int readUnsigned16(ByteProvider provider, long offset) throws IOException {

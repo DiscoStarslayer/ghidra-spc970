@@ -25,14 +25,15 @@ For a recognized 256 KiB MechaCon dump, choose **Sony MechaCon ROM** in the impo
 dialog. The loader automatically:
 
 - selects `spc970:LE:16:default`;
-- maps the ROM at `ram:FC0000`
-- maps SRAM `ram:000000` -> `ram:00FFFF`;
-- applies hardware, command, MG, and buffer symbols
+- maps the four 64 KiB ROM banks
+- locates the active firmware bank (`FC` in version 2 and `FD` in version 3)
+- maps SRAM
+- applies hardware, command, MG and buffer symbols
 - creates entry points
 
-Mechacon analyzer discovers SCMD, NCMD, PMAP, and MG dispatch tables.
-It identifies known SFR helper routines and MG S-box data. 
+Mechacon analyzer discovers SCMD, NCMD, PMAP, and MG dispatch tables. It identifies known SFR helper routines and MG S-box data.
 
 ## Development
 
 `data/buildLanguage.xml` remains available for the GhidraDev/Eclipse workflow. GhidraDev generates the local `.antProperties.xml` file when the project is linked to a Ghidra installation; that machine-specific file is intentionally not tracked.
+

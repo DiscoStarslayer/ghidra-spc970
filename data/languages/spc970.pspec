@@ -12,7 +12,7 @@
 		</pcode>
 		
 		<constresolve>
-		  <register name="UTP"/>
+		  <register name="DP"/>
 		</constresolve>
 	</segmentop>
 	

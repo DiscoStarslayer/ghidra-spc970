@@ -35,6 +35,7 @@
       <unaffected>
         <register name="xSP"/>
         <register name="xFP"/>
+        <register name="DP"/>
         <register name="EP"/>
         <register name="RW2"/>
         <register name="RW3"/>

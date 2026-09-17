@@ -57,7 +57,7 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 	private static final String DESCRIPTION =
 		"Finds validated MechaCon command tables, handler functions, and firmware metadata.";
 	private static final String MARKUP_VERSION_OPTION = "MechaCon Markup Version";
-	private static final int MARKUP_VERSION = 1;
+	private static final int MARKUP_VERSION = 3;
 	private static final String LANGUAGE_ID = "spc970:LE:16:default";
 
 	private static final byte[] LICENSE_MARKER = ascii(
@@ -70,11 +70,15 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 		bytes(0xf3, 0xda, 0xf8, 0x04, 0xec, 0xf8, 0x00, 0xff);
 	private static final byte[] MAGIC_GATE_SBOX_SIGNATURE =
 		bytes(0x0e, 0x00, 0x04, 0x0f, 0x0d, 0x07, 0x01, 0x04, 0x02, 0x0e, 0x0f, 0x02);
+	private static final byte[] MAGIC_GATE_CODE_SIGNATURE =
+		bytes(0xe6, 0x02, 0xf8, 0x0c, 0x6b, 0x00, 0x01, 0xec);
 
 	public MechaConAnalyzer() {
 		super(NAME, DESCRIPTION, AnalyzerType.BYTE_ANALYZER);
 		setDefaultEnablement(true);
-		setPriority(AnalysisPriority.DATA_ANALYSIS);
+		// Reserve validated firmware tables and constant blobs before recursive disassembly can
+		// misinterpret their high-entropy contents as code.
+		setPriority(AnalysisPriority.FORMAT_ANALYSIS);
 		setSupportsOneTimeAnalysis();
 	}
 
@@ -86,6 +90,8 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 	@Override
 	public boolean added(Program program, AddressSetView set, TaskMonitor monitor, MessageLog log)
 			throws CancelledException {
+		MechaConRomLoader.applyRegisterContext(program, log);
+
 		Options programInfo = program.getOptions(Program.PROGRAM_INFO);
 		if (programInfo.getInt(MARKUP_VERSION_OPTION, 0) >= MARKUP_VERSION) {
 			return true;
@@ -93,7 +99,13 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 
 		monitor.setMessage("Analyzing Sony MechaCon firmware");
 		try {
-			Markup markup = new Markup(program, new RomImage(program), monitor, log);
+			RomImage image = new RomImage(program);
+			long primaryBank = image.findPrimaryBank();
+			if (primaryBank < 0) {
+				log.appendMsg(NAME, "Could not identify the primary MechaCon ROM bank");
+				return false;
+			}
+			Markup markup = new Markup(program, image, primaryBank, monitor, log);
 			markup.apply();
 			programInfo.setInt(MARKUP_VERSION_OPTION, MARKUP_VERSION);
 			log.appendMsg(NAME, markup.summary());
@@ -114,11 +126,9 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 				MechaConRomLoader.ROM_END)) {
 				return false;
 			}
-			return matches(memory, space, MechaConRomLoader.ROM_BASE,
-				bytes(0xe6, 0x00, 0xd8, 0xe8)) &&
-				matches(memory, space, MechaConRomLoader.ROM_BASE + 5,
-					bytes(0x09, 0x36, 0xcc, 0x06, 0x0a, 0xd8, 0xe8)) &&
-				find(memory, space, LICENSE_MARKER, MechaConRomLoader.ROM_BASE + 0x3b000,
+			RomImage image = new RomImage(program);
+			return image.findPrimaryBank() >= 0 &&
+				image.find(LICENSE_MARKER, MechaConRomLoader.ROM_BASE + 0x3b000,
 					MechaConRomLoader.ROM_BASE + 0x3b400) >= 0;
 		}
 		catch (MemoryAccessException e) {
@@ -142,6 +152,7 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 
 		private final Program program;
 		private final RomImage image;
+		private final long primaryBank;
 		private final TaskMonitor monitor;
 		private final MessageLog log;
 		private final Memory memory;
@@ -153,11 +164,14 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 		private int ncmdDiagnosticCount;
 		private int pmapCount;
 		private int magicGateCount;
+		private int magicGateConstantBytes;
 		private boolean pmapPresent;
 
-		Markup(Program program, RomImage image, TaskMonitor monitor, MessageLog log) {
+		Markup(Program program, RomImage image, long primaryBank, TaskMonitor monitor,
+				MessageLog log) {
 			this.program = program;
 			this.image = image;
+			this.primaryBank = primaryBank;
 			this.monitor = monitor;
 			this.log = log;
 			memory = program.getMemory();
@@ -203,7 +217,8 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 			String pmap = pmapPresent ? Integer.toString(pmapCount) : "absent";
 			return "Applied conservative markup: SCMD=" + scmdCount +
 				", NCMD diagnostic=" + ncmdDiagnosticCount + ", PMAP=" + pmap +
-				", MagicGate=" + magicGateCount + ", handler targets=" +
+				", MagicGate=" + magicGateCount + ", MagicGate constants=" +
+				magicGateConstantBytes + " bytes, handler targets=" +
 				codeTargets.getNumAddresses();
 		}
 
@@ -220,7 +235,7 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 			}
 
 			long scmdDispatcher = image.find(SCMD_DISPATCH_SIGNATURE,
-				MechaConRomLoader.ROM_BASE, MechaConRomLoader.ROM_BASE + 0x10000);
+				primaryBank, primaryBank + MechaConRomLoader.BANK_SIZE);
 			if (scmdDispatcher >= 0) {
 				markCodeTarget(scmdDispatcher, "SCMD_Command_Dispatcher");
 			}
@@ -233,8 +248,8 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 		}
 
 		private void markKnownData() throws CancelledException, CodeUnitInsertionException {
-			long sbox = image.find(MAGIC_GATE_SBOX_SIGNATURE, MechaConRomLoader.ROM_BASE,
-				MechaConRomLoader.ROM_BASE + 0x8000);
+			long sbox = image.find(MAGIC_GATE_SBOX_SIGNATURE, primaryBank,
+				primaryBank + 0x8000);
 			if (sbox >= 0) {
 				createAnalysisLabel(sbox, "MG_Cipher_SBox_Tables");
 				setPlateCommentIfAbsent(sbox,
@@ -245,8 +260,8 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 		}
 
 		private DispatchTable findScmdSubcommandTable() throws CancelledException {
-			long end = MechaConRomLoader.ROM_BASE + 0x10000 - 24;
-			for (long address = MechaConRomLoader.ROM_BASE; address < end; address++) {
+			long end = primaryBank + MechaConRomLoader.BANK_SIZE - 24;
+			for (long address = primaryBank; address < end; address++) {
 				monitor.checkCancelled();
 				if (image.u8(address + 4) == 0x00 && image.u8(address + 5) == 0x01 &&
 					image.u8(address + 10) == 0x01 && image.u8(address + 11) == 0x01 &&
@@ -332,7 +347,7 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 				throws CancelledException, CodeUnitInsertionException {
 			long start = end;
 			int total = 0;
-			while (total < 40 && start >= MechaConRomLoader.ROM_BASE + 6 &&
+			while (total < 40 && start >= primaryBank + 6 &&
 					image.isRomPointer(image.u32(start - 6))) {
 				start -= 6;
 				total++;
@@ -429,8 +444,8 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 		}
 
 		private DispatchTable findMagicGateTable() throws CancelledException {
-			long start = MechaConRomLoader.ROM_BASE + 0x2000;
-			long end = MechaConRomLoader.ROM_BASE + 0x4000 - 128;
+			long start = primaryBank + 0x2000;
+			long end = primaryBank + 0x4000 - 128;
 			for (long address = start; address < end; address += 2) {
 				monitor.checkCancelled();
 				boolean valid = true;
@@ -457,6 +472,19 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 				"MagicGate SCMD handlers for commands 80-9f");
 			createDataIfUndefined(table.address(),
 				new ArrayDataType(Pointer32DataType.dataType, table.count(), 4));
+
+			long constantsStart = table.address() + table.count() * 4L;
+			long codeStart = image.find(MAGIC_GATE_CODE_SIGNATURE, constantsStart,
+				Math.min(constantsStart + 0x400, primaryBank + MechaConRomLoader.BANK_SIZE));
+			if (codeStart > constantsStart) {
+				magicGateConstantBytes = (int) (codeStart - constantsStart);
+				createAnalysisLabel(constantsStart, "MG_Cipher_Constants");
+				setPlateCommentIfAbsent(constantsStart,
+					"MagicGate cipher constants and lookup data");
+				createDataIfUndefined(constantsStart,
+					new ArrayDataType(ByteDataType.dataType, magicGateConstantBytes, 1));
+				markCodeTarget(codeStart, "MagicGate_Cipher_Routines");
+			}
 			for (int i = 0; i < table.count(); i++) {
 				monitor.checkCancelled();
 				long pointerAddress = table.address() + i * 4L;
@@ -555,8 +583,8 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 				}
 			}
 
-			long videoTs = image.find(ascii("VIDEO_TS"), MechaConRomLoader.ROM_BASE,
-				MechaConRomLoader.ROM_BASE + 0x10000);
+			long videoTs = image.find(ascii("VIDEO_TS"), primaryBank,
+				primaryBank + MechaConRomLoader.BANK_SIZE);
 			if (videoTs >= 0) {
 				createAnalysisLabel(videoTs, "ROM_Default_DVD_Directory");
 				createDataIfUndefined(videoTs, StringDataType.dataType, 9);
@@ -714,6 +742,30 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 				pointer <= MechaConRomLoader.ROM_END;
 		}
 
+		long findPrimaryBank() {
+			for (long bank = MechaConRomLoader.ROM_BASE;
+					bank <= MechaConRomLoader.ROM_END;
+					bank += MechaConRomLoader.BANK_SIZE) {
+				if (matches((int) (bank - MechaConRomLoader.ROM_BASE),
+					bytes(0xe6, 0x00, 0xd8, 0xe8)) &&
+					matches((int) (bank - MechaConRomLoader.ROM_BASE + 0x05),
+						bytes(0x09, 0x36, 0xcc, 0x06, 0x0a, 0xd8, 0xe8)) &&
+					matches((int) (bank - MechaConRomLoader.ROM_BASE + 0x0d),
+						bytes(0x09, 0xea, 0x00, 0x01, 0xe8)) &&
+					matches((int) (bank - MechaConRomLoader.ROM_BASE + 0x13),
+						bytes(0x09, 0xe8)) &&
+					matches((int) (bank - MechaConRomLoader.ROM_BASE + 0x16),
+						bytes(0x09, 0xcc, 0x07, 0x04, 0xec)) &&
+					(matches((int) (bank - MechaConRomLoader.ROM_BASE + 0x1c),
+						bytes(0xe5, 0xff, 0xe2, 0x80)) ||
+						matches((int) (bank - MechaConRomLoader.ROM_BASE + 0x1c),
+							bytes(0xe6, 0xff, 0xe2, 0x80)))) {
+					return bank;
+				}
+			}
+			return -1;
+		}
+
 		long find(byte[] pattern, long start, long end) {
 			int first = Math.max(0, (int) (start - MechaConRomLoader.ROM_BASE));
 			int last = Math.min(bytes.length - pattern.length,
@@ -746,26 +798,6 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 			}
 			return true;
 		}
-	}
-
-	private static boolean matches(Memory memory, AddressSpace space, long address, byte[] pattern)
-			throws MemoryAccessException {
-		for (int i = 0; i < pattern.length; i++) {
-			if (memory.getByte(space.getAddress(address + i)) != pattern[i]) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	private static long find(Memory memory, AddressSpace space, byte[] pattern, long start,
-			long end) throws MemoryAccessException {
-		for (long address = start; address + pattern.length <= end + 1; address++) {
-			if (matches(memory, space, address, pattern)) {
-				return address;
-			}
-		}
-		return -1;
 	}
 
 	private static byte[] ascii(String value) {
