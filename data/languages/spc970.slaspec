@@ -609,8 +609,12 @@ bArgTbl2: val is prefix=0x80 & data1 & data2 [ val = (data1 << 8) + data2; ] { t
 wArgTbl2: val is prefix=0x81 & data1 & data2 [ val = (data1 << 8) + data2; ] { tmp:3 = zext(val:2); export *:2 tmp; }
 
 # bRW2Offset
-bArgTbl2: @(sdata2,extRegVal) is prefix=0x90 & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:2); export *:1 ptr; }
-wArgTbl2: @(sdata2,extRegVal) is prefix=0x91 & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:2); export *:2 ptr; }
+# Word-register offsets wrap at 16 bits and retain their DP/EP bank. Extended xFP/xSP
+# addressing is genuinely 24-bit, so its signed displacement may carry into the bank.
+bArgTbl2: @(sdata2,extRegVal) is prefix=0x90 & (data1=0 | data1=1 | data1=2 | data1=3 | data1=4 | data1=5) & extRegVal & sdata2 { offset:2 = extRegVal:2 + sdata2; ptr:3 = (extRegVal & 0xff0000) | zext(offset); export *:1 ptr; }
+bArgTbl2: @(sdata2,extRegVal) is prefix=0x90 & (data1=6 | data1=7) & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:2); export *:1 ptr; }
+wArgTbl2: @(sdata2,extRegVal) is prefix=0x91 & (data1=0 | data1=1 | data1=2 | data1=3 | data1=4 | data1=5) & extRegVal & sdata2 { offset:2 = extRegVal:2 + sdata2; ptr:3 = (extRegVal & 0xff0000) | zext(offset); export *:2 ptr; }
+wArgTbl2: @(sdata2,extRegVal) is prefix=0x91 & (data1=6 | data1=7) & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:2); export *:2 ptr; }
 
 # bRWOffset
 bArgTbl2: @(sdata2,extRegVal) is prefix=0xA0 & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:1); export *:1 ptr; }
@@ -644,7 +648,8 @@ wArgTbl2: @(pstiExtRegVal+) is prefix=0xF4 & pstiExtRegVal { export *:2 pstiExtR
 # Table 7 operations use a long operand regardless of the byte/word prefix bit.
 lArgTbl2: @(sdata1,xFP) is (prefix=0x2 | prefix=0x3) & sdata1 & xFP { ptr:3 = xFP + sext(sdata1:1); export *:4 ptr; }
 lArgTbl2: val is (prefix=0x80 | prefix=0x81) & data1 & data2 [ val = (data1 << 8) + data2; ] { tmp:3 = zext(val:2); export *:4 tmp; }
-lArgTbl2: @(sdata2,extRegVal) is (prefix=0x90 | prefix=0x91) & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:2); export *:4 ptr; }
+lArgTbl2: @(sdata2,extRegVal) is (prefix=0x90 | prefix=0x91) & (data1=0 | data1=1 | data1=2 | data1=3 | data1=4 | data1=5) & extRegVal & sdata2 { offset:2 = extRegVal:2 + sdata2; ptr:3 = (extRegVal & 0xff0000) | zext(offset); export *:4 ptr; }
+lArgTbl2: @(sdata2,extRegVal) is (prefix=0x90 | prefix=0x91) & (data1=6 | data1=7) & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:2); export *:4 ptr; }
 lArgTbl2: @(sdata2,extRegVal) is (prefix=0xA0 | prefix=0xA1) & extRegVal & sdata2 { ptr:3 = extRegVal + sext(sdata2:1); export *:4 ptr; }
 lArgTbl2: @(extRegVal) is (prefix=0xB0 | prefix=0xB1) & extRegVal { export *:4 extRegVal; }
 lArgTbl2: lConToReg is (prefix=0xC0 | prefix=0xC1) & lConToReg { export lConToReg; }
@@ -700,7 +705,8 @@ lArgTbl8: #val is prefix=0xE2 & data1 & tbl8Mode=1 & data2 [ val = data1 + (data
 with :phase=5 {
 
 wArgTbl62: #val is prefix2=0x0280 [ val = (data3 << 8) + data4; ] { tmp:2 = val; export tmp; }
-wArgTbl62: @(sdata4,extRegVal3) is prefix2=0x0290 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:2); export *:2 ptr; }
+wArgTbl62: @(sdata4,extRegVal3) is prefix2=0x0290 & (data3=0 | data3=1 | data3=2 | data3=3 | data3=4 | data3=5) & sdata4 & extRegVal3 { offset:2 = extRegVal3:2 + sdata4; ptr:3 = (extRegVal3 & 0xff0000) | zext(offset); export *:2 ptr; }
+wArgTbl62: @(sdata4,extRegVal3) is prefix2=0x0290 & (data3=6 | data3=7) & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:2); export *:2 ptr; }
 wArgTbl62: @(sdata4,extRegVal3) is prefix2=0x02A0 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:1); export *:2 ptr; }
 wArgTbl62: @(extRegVal3) is prefix2=0x02B0 & extRegVal3 { export *:2 extRegVal3; }
 wArgTbl62: pCon3ToReg is prefix2=0x02C0 & (data3=6|data3=7) & pCon3ToReg { tmp:2 = pCon3ToReg:2; export tmp; }
@@ -709,7 +715,8 @@ wArgTbl62: data3 is prefix2=0x02E0 & data3 { ptr:3 = zext(data3:2); export *:2 p
 wArgTbl62: data3 is prefix2=0x02E1 & data3 { export *:2 data3; }
 
 bArgTbl62: #data4 is prefix2=0x0280 & data4 { tmp:1 = data4:1; export tmp; }
-bArgTbl62: @(sdata4,extRegVal3) is prefix2=0x0290 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:2); export *:1 ptr; }
+bArgTbl62: @(sdata4,extRegVal3) is prefix2=0x0290 & (data3=0 | data3=1 | data3=2 | data3=3 | data3=4 | data3=5) & sdata4 & extRegVal3 { offset:2 = extRegVal3:2 + sdata4; ptr:3 = (extRegVal3 & 0xff0000) | zext(offset); export *:1 ptr; }
+bArgTbl62: @(sdata4,extRegVal3) is prefix2=0x0290 & (data3=6 | data3=7) & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:2); export *:1 ptr; }
 bArgTbl62: @(sdata4,extRegVal3) is prefix2=0x02A0 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:1); export *:1 ptr; }
 bArgTbl62: @(extRegVal3) is prefix2=0x02B0 & extRegVal3 { export *:1 extRegVal3; }
 bArgTbl62: bCon3ToReg is prefix2=0x02C0 & bCon3ToReg { export bCon3ToReg; }
@@ -717,7 +724,8 @@ bArgTbl62: data3 is prefix2=0x02E0 & data3 { ptr:3 = zext(data3:2); export *:1 p
 bArgTbl62: data3 is prefix2=0x02E1 & data3 { export *:1 data3; }
 
 wArgTbl63: #val is prefix2=0x0380 [ val = (data3 << 8) + data4; ] { tmp:2 = val; export tmp; }
-wArgTbl63: @(sdata4,extRegVal3) is prefix2=0x0390 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:2); export *:2 ptr; }
+wArgTbl63: @(sdata4,extRegVal3) is prefix2=0x0390 & (data3=0 | data3=1 | data3=2 | data3=3 | data3=4 | data3=5) & sdata4 & extRegVal3 { offset:2 = extRegVal3:2 + sdata4; ptr:3 = (extRegVal3 & 0xff0000) | zext(offset); export *:2 ptr; }
+wArgTbl63: @(sdata4,extRegVal3) is prefix2=0x0390 & (data3=6 | data3=7) & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:2); export *:2 ptr; }
 wArgTbl63: @(sdata4,extRegVal3) is prefix2=0x03A0 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:1); export *:2 ptr; }
 wArgTbl63: @(extRegVal3) is prefix2=0x03B0 & extRegVal3 { export *:2 extRegVal3; }
 wArgTbl63: pCon3ToReg is prefix2=0x03C0 & (data3=6|data3=7) & pCon3ToReg { tmp:2 = pCon3ToReg:2; export tmp; }
@@ -726,7 +734,8 @@ wArgTbl63: data3 is prefix2=0x03E0 & data3 { ptr:3 = zext(data3:2); export *:2 p
 wArgTbl63: data3 is prefix2=0x03E1 & data3 { export *:2 data3; }
 
 bArgTbl63: #data4 is prefix2=0x0380 & data4 { tmp:1 = data4:1; export tmp; }
-bArgTbl63: @(sdata4,extRegVal3) is prefix2=0x0390 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:2); export *:1 ptr; }
+bArgTbl63: @(sdata4,extRegVal3) is prefix2=0x0390 & (data3=0 | data3=1 | data3=2 | data3=3 | data3=4 | data3=5) & sdata4 & extRegVal3 { offset:2 = extRegVal3:2 + sdata4; ptr:3 = (extRegVal3 & 0xff0000) | zext(offset); export *:1 ptr; }
+bArgTbl63: @(sdata4,extRegVal3) is prefix2=0x0390 & (data3=6 | data3=7) & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:2); export *:1 ptr; }
 bArgTbl63: @(sdata4,extRegVal3) is prefix2=0x03A0 & sdata4 & extRegVal3 { ptr:3 = extRegVal3 + sext(sdata4:1); export *:1 ptr; }
 bArgTbl63: @(extRegVal3) is prefix2=0x03B0 & extRegVal3 { export *:1 extRegVal3; }
 bArgTbl63: bCon3ToReg is prefix2=0x03C0 & bCon3ToReg { export bCon3ToReg; }
@@ -841,8 +850,11 @@ with :phase=0 {
 }
 
 :TJSR tjsrIndex3 is op0_4=0x1 & opHalf4_1=0x1 & tjsrIndex3 {
-	# The three-bit operand selects an implementation-defined call-table entry. Until that
-	# table is identified, retain the index without inventing an offcut direct-call target.
+	# The three-bit operand selects an implementation-defined call-table entry. The ROM corpus
+	# contains no confirmed executed sample from which to recover that table, so preserve the
+	# known subroutine stack effect without inventing a direct target.
+	ret:2 = inst_next;
+	push16(ret);
 	tableCall(tjsrIndex3);
 }
 
@@ -909,8 +921,8 @@ with :phase=0 {
 
 :PJSR immAddr24 is op0_8=0xEC; immAddr24 {
 	ret:2 = inst_next;
-	push16(ret);
 	push16(CP);
+	push16(ret);
 	#CP = (immAddr24 & 0xFF0000) >> 16;
 	call immAddr24;
 }
@@ -989,8 +1001,8 @@ with :phase=0 {
 }
 
 :PRTS is op0_8=0xFB {
-	pop16(CP);
 	pop16(PC);
+	pop16(CP);
 	
 	local hi:3 = zext(CP);
 	ptr:3 = (hi << 16) + zext(PC);
@@ -1198,13 +1210,29 @@ with :phase=1 {
 	logicalFlags(wArgTbl2);
 }
 
-:MOV.G0.B bArgTbl2,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & indRegVal; simm16) ... & bArgTbl2 & tbl2Width=0 {
+# Keep DP/EP fixed for word-register indexing while preserving full 24-bit displacement
+# arithmetic for xFP and xSP.
+:MOV.G0.B bArgTbl2,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3 | opData5_3=4 | opData5_3=5) & indRegVal; simm16) ... & bArgTbl2 & tbl2Width=0 {
+	offset:2 = indRegVal:2 + simm16;
+	ptr:3 = (indRegVal & 0xff0000) | zext(offset);
+	*:1 ptr = bArgTbl2;
+	logicalFlags(bArgTbl2);
+}
+
+:MOV.G0.B bArgTbl2,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & (opData5_3=6 | opData5_3=7) & indRegVal; simm16) ... & bArgTbl2 & tbl2Width=0 {
 	ptr:3 = indRegVal + sext(simm16:2);
 	*:1 ptr = bArgTbl2;
 	logicalFlags(bArgTbl2);
 }
 
-:MOV.G0.W wArgTbl2,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & indRegVal; simm16) ... & wArgTbl2 & tbl2Width=1 {
+:MOV.G0.W wArgTbl2,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3 | opData5_3=4 | opData5_3=5) & indRegVal; simm16) ... & wArgTbl2 & tbl2Width=1 {
+	offset:2 = indRegVal:2 + simm16;
+	ptr:3 = (indRegVal & 0xff0000) | zext(offset);
+	*:2 ptr = wArgTbl2;
+	logicalFlags(wArgTbl2);
+}
+
+:MOV.G0.W wArgTbl2,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & (opData5_3=6 | opData5_3=7) & indRegVal; simm16) ... & wArgTbl2 & tbl2Width=1 {
 	ptr:3 = indRegVal + sext(simm16:2);
 	*:2 ptr = wArgTbl2;
 	logicalFlags(wArgTbl2);
@@ -1681,13 +1709,27 @@ with :phase=2 {
 	logicalFlags(wArgTbl3);
 }
 
-:MOV.G0.B #bArgTbl3,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & indRegVal; simm16) ... & bArgTbl3 {
+:MOV.G0.B #bArgTbl3,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3 | opData5_3=4 | opData5_3=5) & indRegVal; simm16) ... & bArgTbl3 {
+	offset:2 = indRegVal:2 + simm16;
+	ptr:3 = (indRegVal & 0xff0000) | zext(offset);
+	*:1 ptr = bArgTbl3;
+	logicalFlags(bArgTbl3);
+}
+
+:MOV.G0.B #bArgTbl3,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & (opData5_3=6 | opData5_3=7) & indRegVal; simm16) ... & bArgTbl3 {
 	ptr:3 = indRegVal + sext(simm16:2);
 	*:1 ptr = bArgTbl3;
 	logicalFlags(bArgTbl3);
 }
 
-:MOV.G0.W #wArgTbl3,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & indRegVal; simm16) ... & wArgTbl3 {
+:MOV.G0.W #wArgTbl3,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & (opData5_3=0 | opData5_3=1 | opData5_3=2 | opData5_3=3 | opData5_3=4 | opData5_3=5) & indRegVal; simm16) ... & wArgTbl3 {
+	offset:2 = indRegVal:2 + simm16;
+	ptr:3 = (indRegVal & 0xff0000) | zext(offset);
+	*:2 ptr = wArgTbl3;
+	logicalFlags(wArgTbl3);
+}
+
+:MOV.G0.W #wArgTbl3,@(simm16,indRegVal) is (op0_4=0x9 & opHalf4_1=1 & (opData5_3=6 | opData5_3=7) & indRegVal; simm16) ... & wArgTbl3 {
 	ptr:3 = indRegVal + sext(simm16:2);
 	*:2 ptr = wArgTbl3;
 	logicalFlags(wArgTbl3);

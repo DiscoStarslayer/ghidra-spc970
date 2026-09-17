@@ -35,6 +35,7 @@ import ghidra.program.model.data.Pointer32DataType;
 import ghidra.program.model.data.StringDataType;
 import ghidra.program.model.data.StructureDataType;
 import ghidra.program.model.listing.CommentType;
+import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Listing;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.Memory;
@@ -57,13 +58,26 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 	private static final String DESCRIPTION =
 		"Finds validated MechaCon command tables, handler functions, and firmware metadata.";
 	private static final String MARKUP_VERSION_OPTION = "MechaCon Markup Version";
-	private static final int MARKUP_VERSION = 3;
+	private static final int MARKUP_VERSION = 4;
 	private static final String LANGUAGE_ID = "spc970:LE:16:default";
 
 	private static final byte[] LICENSE_MARKER = ascii(
 		"Licensed bySonyComputerEntertainmentof America(Europe)Inc.");
 	private static final byte[] SFR_WRITE_BYTE_SIGNATURE = bytes(
 		0xe6, 0x00, 0xf3, 0xda, 0xf8, 0x04, 0xc8, 0xef, 0xf3, 0xdd, 0xfd, 0xa6, 0x08);
+	private static final byte[] SFR_BIT_WRITE_SIGNATURE = bytes(
+		0xe6, 0x04, 0xf3, 0xda, 0xc8, 0xef, 0xf3, 0xdd, 0xfd, 0xea, 0x00, 0x80,
+		0xa6, 0x06, 0x64, 0xcc, 0xe2, 0xd8);
+	private static final byte[] SFR_BIT_TEST_SIGNATURE = bytes(
+		0xe6, 0x02, 0xf3, 0xda, 0xc8, 0xef, 0xf3, 0xdd, 0xfd, 0xea, 0x00, 0x80,
+		0xa6, 0x06, 0x64, 0xcc, 0xe2, 0xd8, 0x11, 0xf2);
+	private static final SfrLayout[] SFR_LAYOUTS = {
+		new SfrLayout(0x16c, 0x1a9, 0x1e6),
+		new SfrLayout(0x1a3, 0x1e0, 0x21d)
+	};
+	private static final byte[] COMPILER_SWITCH_DISPATCH_SIGNATURE = bytes(
+		0xe6, 0x0e, 0xf3, 0xda, 0xf8, 0x3f, 0x34, 0xc8, 0x10, 0xf2, 0x32, 0xcc,
+		0xf3, 0xa4, 0xc8, 0xf3, 0xa4, 0xef, 0xc0, 0xe2, 0xe8, 0x61, 0x33, 0x11, 0xc8);
 	private static final byte[] SCMD_DISPATCH_SIGNATURE =
 		bytes(0xe6, 0x0c, 0xf3, 0xda, 0xf8, 0x0c, 0x6b, 0x12, 0x00);
 	private static final byte[] UART_DIAGNOSTIC_SIGNATURE =
@@ -166,6 +180,7 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 		private int magicGateCount;
 		private int magicGateConstantBytes;
 		private boolean pmapPresent;
+		private long compilerSwitchDispatcher = -1;
 
 		Markup(Program program, RomImage image, long primaryBank, TaskMonitor monitor,
 				MessageLog log) {
@@ -226,12 +241,16 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 			long sfr = image.find(SFR_WRITE_BYTE_SIGNATURE, MechaConRomLoader.ROM_BASE,
 				MechaConRomLoader.ROM_END);
 			if (sfr >= 0) {
-				markCodeTarget(sfr, "SFR_WriteByte");
-				markCodeTarget(sfr + 0x14, "SFR_ReadByte");
-				markCodeTarget(sfr + 0x68, "SFR_WriteDword");
-				markCodeTarget(sfr + 0xb6, "SFR_ReadDword");
-				markCodeTarget(sfr + 0x16c, "SFR_SetBit");
-				markCodeTarget(sfr + 0x1a9, "SFR_ClearBit");
+				markSfrHelpers(sfr);
+			}
+
+			compilerSwitchDispatcher = image.find(COMPILER_SWITCH_DISPATCH_SIGNATURE,
+				MechaConRomLoader.ROM_BASE, MechaConRomLoader.ROM_END);
+			if (compilerSwitchDispatcher >= 0) {
+				markCodeTarget(compilerSwitchDispatcher, "Compiler_Switch_Dispatch");
+				setPlateCommentIfAbsent(compilerSwitchDispatcher,
+					"Compiler switch dispatcher: consumes inline metadata following PJSR " +
+						"and transfers control through an indirect jump");
 			}
 
 			long scmdDispatcher = image.find(SCMD_DISPATCH_SIGNATURE,
@@ -245,6 +264,34 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 			if (uart >= 0) {
 				markCodeTarget(uart, "UART_Main_Diagnostic_Loop");
 			}
+		}
+
+		private void markSfrHelpers(long sfr) {
+			markCodeTarget(sfr, "SFR_WriteByte");
+			markCodeTarget(sfr + 0x14, "SFR_ReadByte");
+			markCodeTarget(sfr + 0x68, "SFR_WriteDword");
+			markCodeTarget(sfr + 0xb6, "SFR_ReadDword");
+
+			SfrLayout layout = findSfrLayout(sfr);
+			if (layout == null) {
+				log.appendMsg(NAME,
+					"SFR byte/dword helpers were found, but the bit-helper layout is unknown");
+				return;
+			}
+			markCodeTarget(sfr + layout.setBitOffset(), "SFR_SetBit");
+			markCodeTarget(sfr + layout.clearBitOffset(), "SFR_ClearBit");
+			markCodeTarget(sfr + layout.testBitOffset(), "SFR_TestBit");
+		}
+
+		private SfrLayout findSfrLayout(long sfr) {
+			for (SfrLayout layout : SFR_LAYOUTS) {
+				if (image.matches(sfr + layout.setBitOffset(), SFR_BIT_WRITE_SIGNATURE) &&
+					image.matches(sfr + layout.clearBitOffset(), SFR_BIT_WRITE_SIGNATURE) &&
+					image.matches(sfr + layout.testBitOffset(), SFR_BIT_TEST_SIGNATURE)) {
+					return layout;
+				}
+			}
+			return null;
 		}
 
 		private void markKnownData() throws CancelledException, CodeUnitInsertionException {
@@ -688,6 +735,13 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 				new DisassembleCommand(codeTargets, memory.getExecuteSet(), true);
 			disassemble.applyTo(program, monitor);
 			new CreateFunctionCmd(codeTargets, SourceType.ANALYSIS).applyTo(program, monitor);
+			if (compilerSwitchDispatcher >= 0) {
+				Function function = program.getFunctionManager().getFunctionAt(
+					address(compilerSwitchDispatcher));
+				if (function != null) {
+					function.setNoReturn(true);
+				}
+			}
 		}
 
 		private Address address(long offset) {
@@ -790,6 +844,12 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 			return -1;
 		}
 
+		boolean matches(long address, byte[] pattern) {
+			int offset = (int) (address - MechaConRomLoader.ROM_BASE);
+			return offset >= 0 && offset + pattern.length <= bytes.length &&
+				matches(offset, pattern);
+		}
+
 		private boolean matches(int offset, byte[] pattern) {
 			for (int i = 0; i < pattern.length; i++) {
 				if (bytes[offset + i] != pattern[i]) {
@@ -799,6 +859,8 @@ public final class MechaConAnalyzer extends AbstractAnalyzer {
 			return true;
 		}
 	}
+
+	private record SfrLayout(long setBitOffset, long clearBitOffset, long testBitOffset) {}
 
 	private static byte[] ascii(String value) {
 		return value.getBytes(StandardCharsets.US_ASCII);
