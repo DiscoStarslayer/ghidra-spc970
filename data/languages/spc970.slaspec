@@ -2793,7 +2793,7 @@ macro tbl6Dadd (a,b) {
 }
 
 macro tbl6Dcmp (a,b) {
-	subFlags(b,a);
+	subFlags(a,b);
 	zeroFlags(b-a);
 }
 
