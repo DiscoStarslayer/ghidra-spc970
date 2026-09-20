@@ -2798,31 +2798,31 @@ macro tbl6Dcmp (a,b) {
 }
 
 :CMP.G2.W wArgTbl2,wArgTbl62 is (op0_8=0xFF) ... & wArgTbl62 & wArgTbl2 & tbl2Width=1 {
-	tbl6Dcmp(wArgTbl2, wArgTbl62);
+	tbl6Dcmp(wArgTbl62, wArgTbl2);
 }
 
 :CMP.G2.B bArgTbl2,bArgTbl62 is (op0_8=0xFF) ... & bArgTbl62 & bArgTbl2 & tbl2Width=0 {
-	tbl6Dcmp(bArgTbl2, bArgTbl62);
+	tbl6Dcmp(bArgTbl62, bArgTbl2);
 }
 
 :CMP.G2.W wArgTbl3,wArgTbl63 is (op0_8=0xFF) ... & wArgTbl63 & wArgTbl3 {
-	tbl6Dcmp(wArgTbl3, wArgTbl63);
+	tbl6Dcmp(wArgTbl63, wArgTbl3);
 }
 
 :CMP.G2.B bArgTbl3,bArgTbl63 is (op0_8=0xFF) ... & bArgTbl63 & bArgTbl3 {
-	tbl6Dcmp(bArgTbl3, bArgTbl63);
+	tbl6Dcmp(bArgTbl63, bArgTbl3);
 }
 
 :CMP.G2.W wArgTbl2,wArgTbl67 is (op0_8=0xFF) ... & wArgTbl67 & wArgTbl2 & tbl2Width=1 {
-	tbl6Dcmp(wArgTbl2, wArgTbl67);
+	tbl6Dcmp(wArgTbl67, wArgTbl2);
 }
 
 :CMP.G2.B bArgTbl2,bArgTbl67 is (op0_8=0xFF) ... & bArgTbl67 & bArgTbl2 & tbl2Width=0 {
-	tbl6Dcmp(bArgTbl2, bArgTbl67);
+	tbl6Dcmp(bArgTbl67, bArgTbl2);
 }
 
 :CMP.G2.L lArgTbl8,lArgTbl68 is (op0_8=0xFF) ... & lArgTbl68 & lArgTbl8 {
-	tbl6Dcmp(lArgTbl8, lArgTbl68);
+	tbl6Dcmp(lArgTbl68, lArgTbl8);
 }
 
 } # End with :phase=5
