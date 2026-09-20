@@ -26,7 +26,7 @@ define register offset=0x33 size=1 [ bFP ];
 # SSP  System Stack Pointer
 # CP   Code Page Register
 # DP   Data Page Register
-# EP   Extra Page Register 
+# EP   Extra Page Register
 # UTP  User Stack Page Register
 # STP  System Stack Page Register
 
@@ -48,10 +48,10 @@ define register offset=0x10 size=1 [ _ _ _ _ _ _ _ _ CP DP EP UTP STP ];
 define register offset=0x22 size=1 [ IM BCR S I M V X Z ];
 
 # SPC970 has individual "banks" for registers, aka a register window
-# BCR register selects currently active bank index. 
+# BCR register selects currently active bank index.
 # SPC970 is assumed to have 16 banks, SPC970s 32 banks
 
-# Following "Window" registers emulate this functionality within ghidra. 
+# Following "Window" registers emulate this functionality within ghidra.
 # Actual registers are simply a pointer to this storage space
 define register offset=0x40 size=2 [
 	W000 W001 W002 W003 W004 W005 W006 W007
@@ -92,12 +92,12 @@ define context contextreg
 define token opbyte (8)
 	op0_8		= (0,7)
 	op0_4		= (4,7)
-	
+
 	opHalf4_1	= (3,3)
 	opMode4_4	= (0,3)
 	simm4_4		= (0,3) signed
 	imm4_4		= (0,3)
-	
+
 	opData5_3	= (0,2)
 	xbReg5_3	= (0,2)
 	xwReg5_3	= (0,2)
@@ -131,7 +131,7 @@ define token bdata (8)
 	stmRW6N		= (6,7)
 	stmRW7N		= (7,7)
 # LDM
-# 7 6 5 4 3 2 1 0	
+# 7 6 5 4 3 2 1 0
 	ldmRW7		= (0,0)
 	ldmRW6		= (1,1)
 	ldmRW5		= (2,2)
@@ -139,7 +139,7 @@ define token bdata (8)
 	ldmRW3		= (4,4)
 	ldmRW2		= (5,5)
 	ldmRW1		= (6,6)
-	ldmRW0		= (7,7)	
+	ldmRW0		= (7,7)
 	ldmRW7N		= (0,0)
 	ldmRW6N		= (0,1)
 	ldmRW5N		= (0,2)
@@ -188,15 +188,15 @@ define pcodeop stop;
 
 macro regbank(from,to) {
 	# Store current registers to window
-	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 0) * 2) = RW0; 
-	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 1) * 2) = RW1; 
-	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 2) * 2) = RW2; 
-	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 3) * 2) = RW3; 
-	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 4) * 2) = RW4; 
-	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 5) * 2) = RW5; 
-	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 6) * 2) = FP; 
-	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 7) * 2) = SP; 
-	
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 0) * 2) = RW0;
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 1) * 2) = RW1;
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 2) * 2) = RW2;
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 3) * 2) = RW3;
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 4) * 2) = RW4;
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 5) * 2) = RW5;
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 6) * 2) = FP;
+	*[register]:2 ((&W000) + (from:4 * $(REGBANKSZ) + 7) * 2) = SP;
+
 	# Load new window into registers
 	RW0 = *[register]:2 ((&W000) + (to:4 * $(REGBANKSZ) + 0) * 2);
 	RW1 = *[register]:2 ((&W000) + (to:4 * $(REGBANKSZ) + 1) * 2);
@@ -378,7 +378,7 @@ trapDescriptor8: "#"^imm8 is imm8 {
 
 bIdx3: opData5_3 is opData5_3 {
 	local tmp:1 = opData5_3;
-	export tmp; 
+	export tmp;
 }
 
 bAddrAbs11: val is opData5_3; imm8 [ val = (opData5_3 << 8) + imm8; ] { tmp:3 = zext(val:2); export *:1 tmp; }
@@ -960,7 +960,7 @@ with :phase=0 {
 	push16(CP);
 	syncFlags();
 	push16(PSW);
-	
+
 	# TODO:
 	# Need to determine where trapA vector table exists
 	# then navigate to that vector address
@@ -972,13 +972,13 @@ with :phase=0 {
 	pop16(PC);
 	pop16(PSW);
 	syncPSW();
-	
+
 	local hi:3 = zext(CP);
 	ptr:3 = (hi << 16) + zext(PC);
-	
+
 	return [ptr];
-}	
-	
+}
+
 :UNLK xFP is op0_8=0xF6 & xFP {
 	xSP = xFP;
 	pop16(wFP);
@@ -996,17 +996,17 @@ with :phase=0 {
 	pop16(PC);
 	local hi:3 = zext(CP);
 	ptr:3 = (hi << 16) + zext(PC);
-	
+
 	return [ptr];
 }
 
 :PRTS is op0_8=0xFB {
 	pop16(PC);
 	pop16(CP);
-	
+
 	local hi:3 = zext(CP);
 	ptr:3 = (hi << 16) + zext(PC);
-	
+
 	return [ptr];
 }
 
@@ -2239,7 +2239,7 @@ with :phase=4 {
 
 :PUSHC cReg5_3 is (op0_4=0xD & opHalf4_1=1 & opData5_3>5 & cReg5_3) ... {
 	push8(cReg5_3);
-} 
+}
 
 :SLEEP is (op0_8=0xE2) ... {
 	sleep();
