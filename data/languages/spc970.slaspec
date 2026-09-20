@@ -214,12 +214,13 @@ macro addFlags(op1,op2) {
 }
 
 macro subFlags(op1,op2) {
-	X = op1 < op2;
+	# SPC970 uses a backward borrow flag like a 6502.
+	X = op1 >= op2;
 	V = sborrow(op1,op2);
 }
 
 macro negFlags(op) {
-	X = op != 0;
+	X = op == 0;
 	V = sborrow(0, op);
 }
 
@@ -262,10 +263,10 @@ macro addx32(c,a,b) {
 }
 
 macro subx8(c,a,b) {
-	borrowIn:1 = X;
+	borrowIn:1 = !X;
 	oldZ:1 = Z;
 	result:1 = a - b - borrowIn;
-	X = (a < b) || ((borrowIn != 0) && (a == b));
+	X = !((a < b) || ((borrowIn != 0) && (a == b)));
 	V = ((a s< 0) != (b s< 0)) && ((result s< 0) != (a s< 0));
 	M = result s< 0;
 	Z = oldZ && (result == 0);
@@ -273,10 +274,10 @@ macro subx8(c,a,b) {
 }
 
 macro subx16(c,a,b) {
-	borrowIn:1 = X;
+	borrowIn:1 = !X;
 	oldZ:1 = Z;
 	result:2 = a - b - zext(borrowIn);
-	X = (a < b) || ((borrowIn != 0) && (a == b));
+	X = !((a < b) || ((borrowIn != 0) && (a == b)));
 	V = ((a s< 0) != (b s< 0)) && ((result s< 0) != (a s< 0));
 	M = result s< 0;
 	Z = oldZ && (result == 0);
@@ -284,10 +285,10 @@ macro subx16(c,a,b) {
 }
 
 macro subx32(c,a,b) {
-	borrowIn:1 = X;
+	borrowIn:1 = !X;
 	oldZ:1 = Z;
 	result:4 = a - b - zext(borrowIn);
-	X = (a < b) || ((borrowIn != 0) && (a == b));
+	X = !((a < b) || ((borrowIn != 0) && (a == b)));
 	V = ((a s< 0) != (b s< 0)) && ((result s< 0) != (a s< 0));
 	M = result s< 0;
 	Z = oldZ && (result == 0);
@@ -760,8 +761,8 @@ lArgTbl68: @(pstiExtRegVal3+) is prefix2=0x08A1 & pstiExtRegVal3 { export *:4 ps
 
 cc: "RA" is opMode4_4=0x0 { tmp:1=1; export tmp; }
 cc: "RN" is opMode4_4=0x1 { tmp:1=0; export tmp; }
-cc: "HI" is opMode4_4=0x2 { tmp:1=!(X||Z); export tmp; }
-cc: "LS" is opMode4_4=0x3 { tmp:1=X||Z; export tmp; }
+cc: "HI" is opMode4_4=0x2 { tmp:1=X&&(!Z); export tmp; }
+cc: "LS" is opMode4_4=0x3 { tmp:1=(!X)||Z; export tmp; }
 cc: "XC" is opMode4_4=0x4 { tmp:1=!X; export tmp; }
 cc: "XS" is opMode4_4=0x5 { tmp:1=X; export tmp; }
 cc: "NE" is opMode4_4=0x6 { tmp:1=!Z; export tmp; }
